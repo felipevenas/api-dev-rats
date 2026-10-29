@@ -1,0 +1,12 @@
+package com.devstreak.enums;
+
+public enum NotificationType {
+    DAILY_GOAL,
+    MILESTONE,
+    CHALLENGE_COMPLETED,
+    CHALLENGE_CANCELLED,
+    CHALLENGE_EXPIRED,
+    MEMBER_JOINED,
+    INVITE_ACCEPTED,
+    INTEGRATION_ATTENTION
+}

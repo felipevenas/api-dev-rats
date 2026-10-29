@@ -1,0 +1,55 @@
+name: Gerenciar Labels
+
+on:
+  push:
+    paths:
+      - '.github/workflows/labels.yml'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  labels:
+    name: Sincronizar Labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar Labels do Repositório
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'feature', color: '0E8A16', description: 'Novas funcionalidades e melhorias' },
+              { name: 'bug', color: 'D93F0B', description: 'Correções de erros e inconsistências' },
+              { name: 'enhancement', color: '1D76DB', description: 'Melhorias de desempenho ou de experiência' },
+              { name: 'documentation', color: '0075CA', description: 'Atualizações de documentação e README' },
+              { name: 'governance', color: '6F42C1', description: 'Diretrizes, governança e automações' },
+              { name: 'security', color: 'B60205', description: 'Auditorias e correções de segurança' },
+              { name: 'ci/cd', color: 'FBCA04', description: 'Workflows do GitHub Actions e compilação' }
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+              } catch (error) {
+                if (error.status !== 422) {
+                  throw error;
+                }
+
+                await github.rest.issues.updateLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+              }
+            }
