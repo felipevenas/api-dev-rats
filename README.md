@@ -1,8 +1,37 @@
-# DevStreak API
+<div align="center">
 
-API Java/Spring Boot do DevStreak: desafios de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos privados, ranking, sequências e definição atômica de vencedor.
+# DevStreak API ⚙️
 
-Este repositório contém **somente o backend**. O frontend React descrito no PRD não faz parte desta entrega.
+**API Java/Spring Boot do DevStreak — desafios privados de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos, ranking, sequências e definição atômica de vencedor.**
+
+[![CI](https://github.com/felipevenas/api-devstreak/actions/workflows/ci.yml/badge.svg)](https://github.com/felipevenas/api-devstreak/actions/workflows/ci.yml)
+[![Java](https://img.shields.io/badge/Java-25-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Flyway](https://img.shields.io/badge/Flyway-migrations-CC0200?style=for-the-badge&logo=flyway&logoColor=white)](https://flywaydb.org/)
+[![Maven](https://img.shields.io/badge/Maven-Wrapper-C71A36?style=for-the-badge&logo=apachemaven&logoColor=white)](https://maven.apache.org/)
+[![JUnit 5](https://img.shields.io/badge/JUnit-5-25A162?style=for-the-badge&logo=junit5&logoColor=white)](https://junit.org/)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
+
+<br />
+
+<p align="center">
+  <a href="#stack"><b>Stack</b></a> •
+  <a href="#arquitetura"><b>Arquitetura</b></a> •
+  <a href="#como-rodar"><b>Executar Local</b></a> •
+  <a href="#configuração"><b>Configuração</b></a> •
+  <a href="#api"><b>API</b></a> •
+  <a href="#testes"><b>Testes</b></a> •
+  <a href="#-governança-e-comunidade"><b>Governança</b></a>
+</p>
+
+</div>
+
+---
+
+API Java/Spring Boot do **DevStreak**: desafios de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos privados, ranking, sequências e definição atômica de vencedor.
+
+Este repositório contém **somente o backend**. O frontend React está em [`../webapp-dev-rats`](../webapp-dev-rats).
 
 ## Stack
 
@@ -18,21 +47,21 @@ Este repositório contém **somente o backend**. O frontend React descrito no PR
 
 O projeto segue a organização em camadas do projeto de referência `money-flow`:
 
-```
+```text
 src/main/java/com/devstreak/
-├── config/          configuração de segurança, propriedades, cache, OpenAPI
-├── controllers/     endpoints HTTP e tratamento global de erros
-├── dto/             requests, responses e paginação
-├── entities/        entidades JPA
-├── enums/           estados e tipos do domínio
-├── exceptions/      exceções e códigos de erro
-├── repositories/    Spring Data JPA
-├── security/        filtros de trace e rate limit, escrita de erros de segurança
-├── services/        contratos de caso de uso
-├── services/impl/   implementações transacionais
-├── services/github/ cliente e autenticação da GitHub App
+├── config/           configuração de segurança, propriedades, cache, OpenAPI
+├── controllers/      endpoints HTTP e tratamento global de erros
+├── dto/              requests, responses e paginação
+├── entities/         entidades JPA
+├── enums/            estados e tipos do domínio
+├── exceptions/       exceções e códigos de erro
+├── repositories/     Spring Data JPA
+├── security/         filtros de trace e rate limit, escrita de erros de segurança
+├── services/         contratos de caso de uso
+├── services/impl/    implementações transacionais
+├── services/github/  cliente e autenticação da GitHub App
 ├── services/activity/ elegibilidade, processamento de webhook e reconciliação
-└── utils/           helpers puros e utilitários de segurança
+└── utils/            helpers puros e utilitários de segurança
 ```
 
 As convenções de nomes, comentários e helpers estão em [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
@@ -46,6 +75,7 @@ As convenções de nomes, comentários e helpers estão em [`docs/CONVENTIONS.md
 - **Idempotência em três camadas:** `github_events.delivery_id`, `eligible_commits (repository, sha)` e `member_daily_activity (challenge, participant, date)`.
 - **Fuso do desafio é fixo.** `committed_at` é armazenado em UTC e convertido para o fuso do desafio ao calcular o dia.
 - **Elegibilidade rigorosa:** autoria pelo ID numérico do GitHub, sem bots, commits vazios ou merge commits; forks não contam por padrão; no modo `OWN_REPOSITORIES` o repositório precisa pertencer à conta pessoal do participante.
+- **Segredos e tokens:** tokens do GitHub são armazenados cifrados com AES-256-GCM e nunca retornados ao cliente.
 
 ## Como rodar
 
@@ -125,7 +155,7 @@ Copie `.env.example` para `.env` e preencha os segredos. As principais variávei
 | `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas, separadas por vírgula |
 | `APP_FRONTEND_URL` | URL usada nos redirects OAuth |
 
-Segredos nunca são versionados e tokens do GitHub são armazenados cifrados com AES-256-GCM.
+Segredos nunca são versionados. O profile `local` precisa ser ativado explicitamente e `.env.example` contém apenas valores de exemplo.
 
 ## GitHub App
 
@@ -222,6 +252,9 @@ Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `trace
 - Unitários: elegibilidade, streaks, fuso, assinatura HMAC e política de senha.
 - Integração: autenticação, webhook idempotente, fluxo de grupo/convite/início, limite de 3 repositórios e processamento de commits com Testcontainers.
 - Concorrência: dois participantes atingindo a meta simultaneamente produzem exatamente um vencedor.
+- Arquitetura: fronteiras de camada e convenções validadas com ArchUnit.
+
+O CI executa `./mvnw -B verify` em JDK 25 e publica o relatório do JaCoCo como artefato.
 
 ## Limitações conhecidas do MVP
 
@@ -230,7 +263,36 @@ Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `trace
 - A reconciliação e os jobs agendados assumem uma única instância da API. Para múltiplas réplicas, adicione um lock distribuído (ShedLock/Redis) antes de escalar horizontalmente.
 - Correções retroativas de resultado exigem procedimento administrativo auditado; não há endpoint público para alterar um vencedor já finalizado.
 
-## Documentação complementar
+---
 
-- [`docs/PRD-MVD.md`](docs/PRD-MVD.md) — PRD do produto
-- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) — convenções de código
+## 🤝 Governança e Comunidade
+
+Este repositório segue uma governança formal, espelhando a dos demais projetos do autor:
+
+| Documento | Finalidade |
+|---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Fluxo de branches/commits, diretrizes arquiteturais, migrations e gates de qualidade. |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Código de conduta da comunidade. |
+| [`SECURITY.md`](SECURITY.md) | Política de divulgação responsável e escopo de segurança do backend. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Histórico de versões ([Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) + SemVer). |
+| [`LICENSE`](LICENSE) | Licença MIT. |
+| [`.github/`](.github) | Templates de Issue/PR e workflows de **CI** (Maven verify) e **labels**. |
+| [`.editorconfig`](.editorconfig) · [`.gitattributes`](.gitattributes) | Padronização de estilo, finais de linha LF e normalização de binários. |
+
+---
+
+## Documentação relacionada
+
+- [`docs/PRD-MVD.md`](docs/PRD-MVD.md) — PRD do produto.
+- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) — convenções de código, camadas e testes.
+- [`../webapp-dev-rats`](../webapp-dev-rats) — frontend React que consome esta API.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença **MIT**. Consulte o arquivo [`LICENSE`](LICENSE) para mais informações.
+
+<div align="center">
+Desenvolvido com excelência por <b><a href="https://github.com/felipevenas">Felipe Venas</a></b>
+</div>
