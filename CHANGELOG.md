@@ -1,15 +1,22 @@
 # Changelog
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
+Todas as mudanças notáveis neste projeto são documentadas neste arquivo.
 
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/)
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [Não publicado]
+
+### 📝 Documentação
+
+- README padronizado com badges, arquitetura, configuração, API, governança e licença.
+- Descrição e topics do repositório alinhados ao ecossistema DevStreak.
+
 ## [0.1.0] - 2026-10-28
 
-### Adicionado
+### 🚀 Adicionado
 
 - **Autenticação e perfil**: cadastro, login, refresh token rotativo em cookie `HttpOnly`, logout, recuperação de senha, edição e exclusão de conta, além de exportação dos dados do usuário.
 - **Integração com GitHub App**: fluxo OAuth, instalação, sincronização de repositórios, callback, setup e webhook com validação de assinatura HMAC.
@@ -24,17 +31,15 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Qualidade**: 36 testes entre unitários, integração com Testcontainers, WireMock, concorrência e arquitetura com ArchUnit; cobertura com JaCoCo.
 - **Governança**: licença MIT, guia de contribuição, política de segurança, código de conduta, templates de issue e pull request, labels automatizadas e CI no GitHub Actions.
 
-### Segurança
+### 🔐 Segurança
 
 - Segredos de desenvolvimento não são versionados; `.env.example` contém apenas valores de exemplo.
 - O profile `local` precisa ser ativado explicitamente, evitando o uso acidental de configurações de desenvolvimento em produção.
 - Tokens do GitHub são armazenados cifrados e nunca retornados ao cliente.
 
-### Limitações conhecidas
+### ⚠️ Limitações conhecidas
 
 - Envio de e-mail de recuperação de senha não integrado; em `local` o token é exposto na resposta.
 - A validação completa da GitHub App depende de credenciais e de uma URL pública de webhook.
 - Jobs agendados e reconciliação assumem uma única instância da API.
 - Correções retroativas de resultado exigem procedimento administrativo auditado.
-
-[0.1.0]: https://github.com/felipevenas/api-devstreak/releases/tag/v0.1.0
