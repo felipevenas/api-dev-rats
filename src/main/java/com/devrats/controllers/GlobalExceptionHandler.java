@@ -16,10 +16,12 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -105,6 +107,18 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleUploadSize(MaxUploadSizeExceededException exception) {
         return build(ErrorCode.PAYLOAD_TOO_LARGE.getStatus(), ErrorCode.PAYLOAD_TOO_LARGE.name(),
                 ErrorCode.PAYLOAD_TOO_LARGE.getTitle(), "Arquivo enviado excede o limite");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ProblemDetail handleUnsupportedMediaType(HttpMediaTypeNotSupportedException exception) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ErrorCode.VALIDATION_ERROR.name(),
+                "Tipo de conteúdo não suportado", "Envie a imagem como multipart/form-data");
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ProblemDetail handleMissingPart(MissingServletRequestPartException exception) {
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.name(),
+                ErrorCode.VALIDATION_ERROR.getTitle(), "Envie o arquivo no campo file");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

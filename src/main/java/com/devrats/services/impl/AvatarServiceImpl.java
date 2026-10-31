@@ -5,6 +5,7 @@ import com.devrats.dto.UserResponse;
 import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.UserEntity;
 import com.devrats.enums.AvatarSource;
+import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.UserStatus;
 import com.devrats.exceptions.DomainException;
 import com.devrats.exceptions.ErrorCode;
@@ -80,7 +81,8 @@ public class AvatarServiceImpl implements AvatarService {
         }
 
         GitHubAccountEntity account = githubAccountRepository.findByUserId(userId).orElse(null);
-        String githubAvatar = account == null ? null : account.getAvatarUrl();
+        String githubAvatar = account == null || account.getConnectionStatus() != GitHubConnectionStatus.CONNECTED
+                ? null : account.getAvatarUrl();
         if (githubAvatar != null && !githubAvatar.isBlank()) {
             user.setAvatarUrl(githubAvatar);
             user.setAvatarSource(AvatarSource.GITHUB);
