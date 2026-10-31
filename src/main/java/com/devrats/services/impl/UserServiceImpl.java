@@ -137,6 +137,11 @@ public class UserServiceImpl implements UserService {
         user.setUsername("deleted_" + suffix);
         user.setDisplayName("Conta removida");
         user.setAvatarUrl(null);
+        user.setBio(null);
+        user.setLocation(null);
+        user.setWebsiteUrl(null);
+        user.setExperienceLevel(null);
+        user.setPrimaryStack(null);
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
         userRepository.save(user);
 
