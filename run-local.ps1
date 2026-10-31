@@ -7,5 +7,5 @@ if (Test-Path $jdk) {
 }
 
 $env:SPRING_PROFILES_ACTIVE = "local"
-Write-Host "Iniciando DevStreak API com profile local..."
+Write-Host "Iniciando DevRats API com profile local..."
 & "$PSScriptRoot\mvnw.cmd" spring-boot:run

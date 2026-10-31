@@ -5,9 +5,15 @@ Vercel e a API usa um hostname `sslip.io`, que resolve para o IP embutido no pr�
 
 | Peça | Onde | URL |
 | --- | --- | --- |
-| Frontend (SPA) | Vercel · projeto `devstreak` | https://devstreak-ten.vercel.app |
+| Frontend (SPA) | Vercel · projeto `devrats-web` | https://devrats-web.vercel.app |
 | API (Spring Boot) | VPS Azure `venasvps` | https://172-179-233-109.sslip.io |
 | Postgres | VPS, database `devstreak` no container `evolution_postgres` | interno |
+
+> **Identificadores legados (proposital)**: o app agora se chama **DevRats**, mas alguns nomes de infraestrutura
+> continuam com `devstreak` para não quebrar dados e integrações já provisionadas — database/role `devstreak`,
+> diretório `/opt/devstreak`, container `devstreak_api`, volume `devstreak_pgdata`, chave SSH `devstreak_vps`
+> e o slug da GitHub App `devstreak-local-felipe`. Renomear qualquer um deles exige migração de dados ou recriação
+> da App; o código, o domínio e a marca já usam `devrats`.
 
 - **VM**: `venasvps`, RG `VENASVPS_GROUP`, `Standard_B2pts_v2` (2 vCPU ARM64, ~1 GB), `westus2`, IP `172.179.233.109`
 - **NSG**: apenas 80, 443 e 22. Nenhuma porta de aplicação publicada.
@@ -85,8 +91,8 @@ GITHUB_PRIVATE_KEY=...         # PEM em linha única com \n
 GITHUB_WEBHOOK_SECRET=dev-webhook-secret
 GITHUB_CALLBACK_URL=https://172-179-233-109.sslip.io/api/v1/integrations/github/callback
 GITHUB_SETUP_URL=https://172-179-233-109.sslip.io/api/v1/integrations/github/setup
-APP_FRONTEND_URL=https://devstreak-ten.vercel.app
-APP_CORS_ALLOWED_ORIGINS=https://devstreak-ten.vercel.app,https://devstreak-felipevenas-projects.vercel.app
+APP_FRONTEND_URL=https://devrats-web.vercel.app
+APP_CORS_ALLOWED_ORIGINS=https://devrats-web.vercel.app,https://devrats-web-felipevenas-projects.vercel.app
 RATE_LIMIT_TRUST_FORWARDED_HEADERS=true
 SPRINGDOC_ENABLED=false
 ```
@@ -135,7 +141,7 @@ Para folga real: SKU ARM com 4 GB (família `B*pls_v2`) e `-Xmx` em ~1 GB.
 
 | Campo | Valor |
 | --- | --- |
-| Homepage URL | `https://devstreak-ten.vercel.app` |
+| Homepage URL | `https://devrats-web.vercel.app` |
 | Callback URL | `https://172-179-233-109.sslip.io/api/v1/integrations/github/callback` |
 | Setup URL | `https://172-179-233-109.sslip.io/api/v1/integrations/github/setup` |
 | Webhook URL | `https://172-179-233-109.sslip.io/api/v1/webhooks/github` |

@@ -12,7 +12,7 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 ### 📝 Documentação
 
 - README padronizado com badges, arquitetura, configuração, API, governança e licença.
-- Descrição e topics do repositório alinhados ao ecossistema DevStreak.
+- Descrição e topics do repositório alinhados ao ecossistema DevRats.
 
 ## [0.1.0] - 2026-10-28
 

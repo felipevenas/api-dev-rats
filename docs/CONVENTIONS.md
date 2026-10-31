@@ -1,4 +1,4 @@
-# Convenções de código — DevStreak API
+# Convenções de código — DevRats API
 
 Este documento é obrigatório para qualquer pessoa ou agente que altere o backend.
 

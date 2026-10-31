@@ -2,7 +2,7 @@
 
 ## Nosso Compromisso
 
-Com o intuito de promover um ambiente aberto e acolhedor, nós, como colaboradores e mantenedores do **DevStreak**, nos comprometemos a tornar a participação em nosso projeto e comunidade uma experiência livre de assédio para todos, independentemente de idade, tamanho corporal, deficiência visível ou invisível, etnia, características sexuais, identidade e expressão de gênero, nível de experiência, educação, status socioeconômico, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
+Com o intuito de promover um ambiente aberto e acolhedor, nós, como colaboradores e mantenedores do **DevRats**, nos comprometemos a tornar a participação em nosso projeto e comunidade uma experiência livre de assédio para todos, independentemente de idade, tamanho corporal, deficiência visível ou invisível, etnia, características sexuais, identidade e expressão de gênero, nível de experiência, educação, status socioeconômico, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
 
 ## Nossos Padrões
 
@@ -34,4 +34,4 @@ Instâncias de comportamento abusivo, assédio ou qualquer conduta inaceitável 
 
 ## Escopo
 
-Este código de conduta se aplica a todos os espaços do projeto: repositório, issues, pull requests, discussões, revisões de código e qualquer canal oficial da comunidade DevStreak.
+Este código de conduta se aplica a todos os espaços do projeto: repositório, issues, pull requests, discussões, revisões de código e qualquer canal oficial da comunidade DevRats.

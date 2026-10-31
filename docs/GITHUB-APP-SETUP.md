@@ -1,6 +1,6 @@
 # Configurando a GitHub App (ambiente local)
 
-A integração do DevStreak com o GitHub usa uma **GitHub App** (e não um OAuth App comum), porque só a App gera
+A integração do DevRats com o GitHub usa uma **GitHub App** (e não um OAuth App comum), porque só a App gera
 *installation tokens* para ler commits dos repositórios escolhidos pelo usuário.
 
 Sem as 5 credenciais abaixo o backend responde `appConfigured: false`, a tela
@@ -25,8 +25,8 @@ Preencha exatamente assim:
 
 | Campo | Valor |
 | --- | --- |
-| **GitHub App name** | `devstreak-local-<seu-usuario>` (precisa ser único no GitHub) |
-| **Description** | `DevStreak local` (opcional) |
+| **GitHub App name** | `devrats-local-<seu-usuario>` (precisa ser único no GitHub) |
+| **Description** | `DevRats local` (opcional) |
 | **Homepage URL** | `http://localhost:5174` |
 | **Callback URL** (em *Identifying and authorizing users*) | `http://localhost:8080/api/v1/integrations/github/callback` |
 | **Expire user authorization tokens** | **mantenha marcado** (padrão) |
@@ -54,7 +54,7 @@ Na página da App criada:
 2. **Client ID** — visível na seção *About*.
 3. **Client secret** — clique em **Generate a new client secret** e copie (só aparece uma vez).
 4. **Private key** — role até *Private keys* → **Generate a private key**. Baixa um `.pem`
-   (ex.: `devstreak-local-felipe.2026-10-30.private-key.pem`). Salve em `api-dev-rats/`.
+   (ex.: `devrats-local-felipe.2026-10-30.private-key.pem`). Salve em `api-dev-rats/`.
 5. **Slug** — está na URL: `https://github.com/settings/apps/<slug>`. Use em `GITHUB_APP_SLUG`.
 6. **Webhook secret** — o valor que você definiu no passo 1.
 
@@ -66,10 +66,14 @@ Arquivo: `api-dev-rats/.env`.
 GITHUB_APP_ID=123456
 GITHUB_CLIENT_ID=Iv1.abc123def456
 GITHUB_CLIENT_SECRET=...
-GITHUB_APP_SLUG=devstreak-local-felipe
+GITHUB_APP_SLUG=devrats-local-felipe
 GITHUB_WEBHOOK_SECRET=dev-webhook-secret
 GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n
 ```
+
+> A App já provisionada para este projeto mantém o slug **`devstreak-local-felipe`** (nome externo, criado antes do
+> rebrand). Renomeá-la exige criar outra App e trocar todas as credenciais no `.env` da VPS — por isso o slug atual
+> não acompanha a mudança de marca. Para um ambiente novo, use `devrats-local-<seu-usuario>`.
 
 ### Formato da chave privada
 
@@ -77,7 +81,7 @@ O `.env` é lido como *properties*: valor em **uma única linha**. Use `\n` lite
 quebra de linha real):
 
 ```powershell
-$pem = Get-Content .\devstreak-local-felipe.private-key.pem -Raw
+$pem = Get-Content .\devrats-local-felipe.private-key.pem -Raw
 $oneLine = $pem.Trim() -replace "`r", "" -replace "`n", '\n'
 $env = Get-Content .\.env -Raw
 $env -replace '(?m)^GITHUB_PRIVATE_KEY=.*$', "GITHUB_PRIVATE_KEY=$oneLine" | Set-Content .\.env -NoNewline
@@ -86,7 +90,7 @@ $env -replace '(?m)^GITHUB_PRIVATE_KEY=.*$', "GITHUB_PRIVATE_KEY=$oneLine" | Set
 O backend também aceita **base64 do PEM** ou **base64 do DER PKCS#8**, útil em secret managers:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\devstreak-local-felipe.private-key.pem"))
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\devrats-local-felipe.private-key.pem"))
 ```
 
 ## 4. Reiniciar a API

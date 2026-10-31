@@ -1,4 +1,4 @@
-# PRD — DevStreak
+# PRD — DevRats
 ## Plataforma social de constância para desenvolvedores
 
 **Versão:** 1.0  
@@ -14,7 +14,7 @@
 
 ## 1.1. Resumo executivo
 
-O DevStreak é uma plataforma de desafios de constância para desenvolvedores, inspirada em aplicativos sociais de acompanhamento de hábitos e competições entre amigos.
+O DevRats é uma plataforma de desafios de constância para desenvolvedores, inspirada em aplicativos sociais de acompanhamento de hábitos e competições entre amigos.
 
 Os usuários poderão conectar suas contas do GitHub, criar grupos privados, convidar amigos e participar de desafios com metas individuais de dias ativos.
 
@@ -1447,5 +1447,5 @@ O MVP será considerado pronto quando um usuário conseguir:
 
 Todos esses fluxos deverão funcionar com testes automatizados, controles de autorização, integridade dos dados e tratamento de falhas da integração.
 
-**Resultado esperado:** uma primeira versão funcional que permita validar a hipótese central do DevStreak: se a competição social, combinada com a verificação automática de atividade no GitHub, incentiva desenvolvedores a manter constância nos estudos e projetos.
+**Resultado esperado:** uma primeira versão funcional que permita validar a hipótese central do DevRats: se a competição social, combinada com a verificação automática de atividade no GitHub, incentiva desenvolvedores a manter constância nos estudos e projetos.
 

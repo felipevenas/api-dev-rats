@@ -12,9 +12,9 @@ RUN ./mvnw -B clean package -DskipTests
 FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
-RUN addgroup -S devstreak && adduser -S devstreak -G devstreak
+RUN addgroup -S devrats && adduser -S devrats -G devrats
 COPY --from=build /app/target/*.jar app.jar
-USER devstreak
+USER devrats
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

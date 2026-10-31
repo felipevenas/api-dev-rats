@@ -1,10 +1,10 @@
 <div align="center">
 
-# DevStreak API ⚙️
+# DevRats API ⚙️
 
-**API Java/Spring Boot do DevStreak — desafios privados de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos, ranking, sequências e definição atômica de vencedor.**
+**API Java/Spring Boot do DevRats — desafios privados de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos, ranking, sequências e definição atômica de vencedor.**
 
-[![CI](https://github.com/felipevenas/api-devstreak/actions/workflows/ci.yml/badge.svg)](https://github.com/felipevenas/api-devstreak/actions/workflows/ci.yml)
+[![CI](https://github.com/felipevenas/api-dev-rats/actions/workflows/ci.yml/badge.svg)](https://github.com/felipevenas/api-dev-rats/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-25-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
@@ -29,7 +29,7 @@
 
 ---
 
-API Java/Spring Boot do **DevStreak**: desafios de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos privados, ranking, sequências e definição atômica de vencedor.
+API Java/Spring Boot do **DevRats**: desafios de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos privados, ranking, sequências e definição atômica de vencedor.
 
 Este repositório contém **somente o backend**. O frontend React está em [`../webapp-dev-rats`](../webapp-dev-rats).
 
@@ -48,7 +48,7 @@ Este repositório contém **somente o backend**. O frontend React está em [`../
 O projeto segue a organização em camadas do projeto de referência `money-flow`:
 
 ```text
-src/main/java/com/devstreak/
+src/main/java/com/devrats/
 ├── config/           configuração de segurança, propriedades, cache, OpenAPI
 ├── controllers/      endpoints HTTP e tratamento global de erros
 ├── dto/              requests, responses e paginação

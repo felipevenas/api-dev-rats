@@ -1,8 +1,8 @@
 # Guia de Contribuição 🤝
 
-Obrigado pelo interesse em contribuir com a **DevStreak API**! Este documento orienta o processo de desenvolvimento para manter o backend consistente, seguro e sustentável.
+Obrigado pelo interesse em contribuir com a **DevRats API**! Este documento orienta o processo de desenvolvimento para manter o backend consistente, seguro e sustentável.
 
-> **Regra de ouro:** o DevStreak comprova atividade elegível, não aprendizado. Nenhuma contribuição pode expor código-fonte, mensagens privadas de commit, tokens ou dados de repositórios de terceiros. A API é a fonte de verdade para autorização, progresso e resultado dos desafios.
+> **Regra de ouro:** o DevRats comprova atividade elegível, não aprendizado. Nenhuma contribuição pode expor código-fonte, mensagens privadas de commit, tokens ou dados de repositórios de terceiros. A API é a fonte de verdade para autorização, progresso e resultado dos desafios.
 
 ---
 
@@ -17,8 +17,8 @@ Obrigado pelo interesse em contribuir com a **DevStreak API**! Este documento or
 ### Instalação
 
 ```powershell
-git clone https://github.com/felipevenas/api-devstreak.git
-cd api-devstreak
+git clone https://github.com/felipevenas/api-dev-rats.git
+cd api-dev-rats
 Copy-Item .env.example .env
 docker compose up -d postgres
 .\run-local.ps1

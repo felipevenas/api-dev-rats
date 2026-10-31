@@ -1,6 +1,6 @@
 # Política de Segurança 🔒
 
-A **DevStreak API** lê metadados de commits no GitHub para validar constância em desafios privados. A segurança e a privacidade são pilares do produto: nenhum código-fonte, mensagem privada de commit, token do GitHub ou dado de repositório de terceiros deve ser exposto.
+A **DevRats API** lê metadados de commits no GitHub para validar constância em desafios privados. A segurança e a privacidade são pilares do produto: nenhum código-fonte, mensagem privada de commit, token do GitHub ou dado de repositório de terceiros deve ser exposto.
 
 Se você acredita ter encontrado uma vulnerabilidade, agradecemos a divulgação responsável.
 
@@ -21,7 +21,7 @@ Apenas a versão mais recente em `main` recebe atualizações ativas de seguran�
 
 **Por favor, não relate vulnerabilidades de segurança publicamente em Issues abertas.**
 
-1. Abra um relatório confidencial pelo recurso de **[Private Vulnerability Reporting](https://github.com/felipevenas/api-devstreak/security/advisories/new)**.
+1. Abra um relatório confidencial pelo recurso de **[Private Vulnerability Reporting](https://github.com/felipevenas/api-dev-rats/security/advisories/new)**.
 2. Se o recurso não estiver disponível, entre em contato diretamente com o mantenedor pelo perfil [@felipevenas](https://github.com/felipevenas), sem abrir uma Issue pública.
 3. Descreva os detalhes, passos para reprodução, impacto potencial e qualquer prova de conceito (PoC).
 4. Responderemos em até **48 horas úteis** com avaliação e plano de mitigação.
@@ -52,4 +52,4 @@ São consideradas vulnerabilidades de alta prioridade:
 3. Publicamos a correção em `main` e registramos no [`CHANGELOG.md`](CHANGELOG.md).
 4. Damos crédito ao pesquisador, se desejado, após a correção.
 
-Obrigado por ajudar a manter o DevStreak seguro.
+Obrigado por ajudar a manter o DevRats seguro.
