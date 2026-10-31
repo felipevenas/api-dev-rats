@@ -16,6 +16,7 @@ import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GitHubInstallationEntity;
 import com.devrats.entities.GitHubRepositoryEntity;
 import com.devrats.entities.UserEntity;
+import com.devrats.enums.AvatarSource;
 import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.GitHubOwnerType;
 import com.devrats.enums.NotificationType;
@@ -148,6 +149,7 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
         GitHubUser githubUser = apiClient.getAuthenticatedUser(token.accessToken());
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+        applyGitHubAvatar(user, githubUser.avatarUrl());
 
         accountRepository.findByGithubUserId(githubUser.id())
                 .filter(other -> !other.getUser().getId().equals(userId))
@@ -315,6 +317,15 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
             entity.setLastSyncedAt(clock.instant());
             repositoryRepository.save(entity);
         }
+    }
+
+    private void applyGitHubAvatar(UserEntity user, String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank() || user.getAvatarSource() == AvatarSource.CUSTOM) {
+            return;
+        }
+        user.setAvatarUrl(avatarUrl);
+        user.setAvatarSource(AvatarSource.GITHUB);
+        userRepository.save(user);
     }
 
     private void storeTokens(GitHubAccountEntity account, GitHubTokenResponse token) {

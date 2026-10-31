@@ -67,6 +67,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private Bucket resolveSpecificBucket(String path, String ip) {
+        if (path.equals("/api/v1/me/avatar")) {
+            return buckets.get("avatar:" + ip, key -> bucket(10, Duration.ofMinutes(1)));
+        }
         if (path.startsWith("/api/v1/auth/")) {
             return buckets.get("auth:" + ip, key -> bucket(properties.getRateLimit().getAuthCapacity(),
                     properties.getRateLimit().getAuthRefill()));

@@ -20,6 +20,7 @@ public final class UserViewHelper {
                 user.getUsername(),
                 user.getEmail(),
                 user.getAvatarUrl(),
+                user.getAvatarSource() == null ? "NONE" : user.getAvatarSource().name(),
                 user.getBio(),
                 user.getLocation(),
                 user.getWebsiteUrl(),

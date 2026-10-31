@@ -22,6 +22,7 @@ public class AppProperties {
     private final Reconciliation reconciliation = new Reconciliation();
     private final RateLimit rateLimit = new RateLimit();
     private final Retention retention = new Retention();
+    private final Storage storage = new Storage();
     private String frontendUrl = "http://localhost:5173";
 
     @Getter
@@ -93,5 +94,26 @@ public class AppProperties {
     public static class Retention {
         private int auditDays = 730;
         private int notificationDays = 180;
+    }
+
+    @Getter
+    @Setter
+    public static class Storage {
+        private String endpoint;
+        //---- R2 requires "auto"; AWS ignores this when an endpoint override is set.
+        private String region = "auto";
+        private String bucket;
+        private String accessKey;
+        private String secretKey;
+        private String publicBaseUrl;
+        private String keyPrefix = "avatars";
+        private long maxAvatarBytes = 2_097_152;
+
+        public boolean isConfigured() {
+            return bucket != null && !bucket.isBlank()
+                    && accessKey != null && !accessKey.isBlank()
+                    && secretKey != null && !secretKey.isBlank()
+                    && publicBaseUrl != null && !publicBaseUrl.isBlank();
+        }
     }
 }
