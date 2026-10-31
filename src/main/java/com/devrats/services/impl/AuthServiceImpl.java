@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -88,15 +89,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthSession login(LoginRequest request) {
-        String email = UserViewHelper.normalizeEmail(request.email());
-        UserEntity user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        UserEntity user = findUserForLogin(request);
         if (user == null) {
-            //---- Equalize the password check cost so unknown e-mails do not leak through timing.
+            //---- Equalize the password check cost so unknown accounts do not leak through timing.
             passwordEncoder.matches(request.password(), dummyPasswordHash);
-            throw new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "E-mail ou senha inválidos");
+            throw invalidCredentials();
         }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "E-mail ou senha inválidos");
+            throw invalidCredentials();
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new UnauthorizedException(ErrorCode.UNAUTHORIZED, "Conta indisponível");
@@ -139,6 +139,61 @@ public class AuthServiceImpl implements AuthService {
         } catch (IllegalArgumentException exception) {
             throw new ValidationException(exception.getMessage());
         }
+    }
+
+    @SuppressWarnings("deprecation")
+    private UserEntity findUserForLogin(LoginRequest request) {
+        String identifier = trimToNull(request.identifier());
+        if (identifier == null) {
+            //---- Legacy payload: { "email": "...", "password": "..." }.
+            return findUserByEmail(request.email());
+        }
+        if (identifier.startsWith("@")) {
+            //---- Explicit username, e.g. "@devrats".
+            return findUserByUsername(identifier);
+        }
+        if (identifier.contains("@")) {
+            return findUserByEmail(identifier);
+        }
+        return findUserByUsername(identifier);
+    }
+
+    private UserEntity findUserByEmail(String rawEmail) {
+        String email = UserViewHelper.normalizeEmail(rawEmail);
+        if (email == null || email.isEmpty()) {
+            return null;
+        }
+        return userRepository.findByEmailIgnoreCase(email).orElse(null);
+    }
+
+    private UserEntity findUserByUsername(String rawUsername) {
+        String username = normalizeUsername(rawUsername);
+        if (username == null) {
+            return null;
+        }
+        return userRepository.findByUsername(username).orElse(null);
+    }
+
+    private static String normalizeUsername(String username) {
+        String trimmed = trimToNull(username);
+        if (trimmed == null) {
+            return null;
+        }
+        String withoutAt = trimmed.startsWith("@") ? trimmed.substring(1) : trimmed;
+        String normalized = withoutAt.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private UnauthorizedException invalidCredentials() {
+        return new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "E-mail, usuário ou senha inválidos");
     }
 
     private AuthSession startSession(UserEntity user, String userAgent) {

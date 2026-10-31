@@ -40,7 +40,9 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                 HttpServletRequest httpRequest) {
+        requireTrustedOrigin(httpRequest);
         AuthSession session = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, cookie(session.refreshToken()).toString())
@@ -48,7 +50,9 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
+                                              HttpServletRequest httpRequest) {
+        requireTrustedOrigin(httpRequest);
         AuthSession session = authService.login(request);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie(session.refreshToken()).toString())
