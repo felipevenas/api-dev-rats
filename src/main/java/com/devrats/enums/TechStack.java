@@ -67,9 +67,18 @@ public enum TechStack {
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .map(value -> value.toUpperCase(Locale.ROOT))
-                .map(TechStack::valueOf)
+                .map(TechStack::parseOrNull)
+                .filter(Objects::nonNull)
                 .distinct()
                 .sorted(BY_NAME)
                 .toList();
+    }
+
+    private static TechStack parseOrNull(String value) {
+        try {
+            return TechStack.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 }
