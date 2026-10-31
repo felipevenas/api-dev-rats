@@ -36,6 +36,10 @@ public enum ErrorCode {
     GITHUB_INVALID_SIGNATURE(HttpStatus.UNAUTHORIZED, "Assinatura do webhook inválida"),
     GITHUB_INVALID_PAYLOAD(HttpStatus.BAD_REQUEST, "Payload do webhook inválido"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload muito grande"),
+    AVATAR_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Imagem muito grande"),
+    AVATAR_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "Formato de imagem inválido"),
+    AVATAR_INVALID_DIMENSIONS(HttpStatus.BAD_REQUEST, "Dimensões de imagem inválidas"),
+    AVATAR_STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Armazenamento de avatar indisponível"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Muitas requisições"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno");
 

@@ -23,6 +23,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
@@ -98,6 +99,12 @@ public class GlobalExceptionHandler {
                 ErrorCode.RATE_LIMITED.getTitle(), "Tente novamente em alguns instantes");
         problem.setProperty("retryAfterSeconds", exception.getRetryAfter().toSeconds());
         return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleUploadSize(MaxUploadSizeExceededException exception) {
+        return build(ErrorCode.PAYLOAD_TOO_LARGE.getStatus(), ErrorCode.PAYLOAD_TOO_LARGE.name(),
+                ErrorCode.PAYLOAD_TOO_LARGE.getTitle(), "Arquivo enviado excede o limite");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

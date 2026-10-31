@@ -6,6 +6,7 @@ import com.devrats.dto.UserResponse;
 import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GroupMemberEntity;
 import com.devrats.entities.UserEntity;
+import com.devrats.enums.AvatarSource;
 import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.MemberStatus;
 import com.devrats.enums.ParticipantStatus;
@@ -21,8 +22,11 @@ import com.devrats.repositories.RefreshTokenRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.RefreshTokenService;
 import com.devrats.services.UserService;
+import com.devrats.services.storage.AvatarStorage;
 import com.devrats.utils.ActivityDateHelper;
 import com.devrats.utils.UserViewHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,11 +39,14 @@ import java.util.UUID;
 @Service
 public class UserServiceImpl implements UserService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
+
     private final UserRepository userRepository;
     private final GitHubAccountRepository githubAccountRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ChallengeParticipantRepository participantRepository;
     private final RefreshTokenService refreshTokenService;
+    private final AvatarStorage avatarStorage;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
@@ -48,6 +55,7 @@ public class UserServiceImpl implements UserService {
                            GroupMemberRepository groupMemberRepository,
                            ChallengeParticipantRepository participantRepository,
                            RefreshTokenService refreshTokenService,
+                           AvatarStorage avatarStorage,
                            PasswordEncoder passwordEncoder,
                            Clock clock) {
         this.userRepository = userRepository;
@@ -55,6 +63,7 @@ public class UserServiceImpl implements UserService {
         this.groupMemberRepository = groupMemberRepository;
         this.participantRepository = participantRepository;
         this.refreshTokenService = refreshTokenService;
+        this.avatarStorage = avatarStorage;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
     }
@@ -132,6 +141,7 @@ public class UserServiceImpl implements UserService {
         }
         Instant now = clock.instant();
         String suffix = user.getId().toString().substring(0, 8);
+        String avatarObjectKey = user.getAvatarObjectKey();
         user.setStatus(UserStatus.DELETED);
         user.setEmail("deleted+" + user.getId() + "@invalid.local");
         user.setUsername("deleted_" + suffix);
@@ -142,8 +152,11 @@ public class UserServiceImpl implements UserService {
         user.setWebsiteUrl(null);
         user.setExperienceLevel(null);
         user.setPrimaryStack(null);
+        user.setAvatarSource(AvatarSource.NONE);
+        user.setAvatarObjectKey(null);
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
         userRepository.save(user);
+        deleteAvatarObjectQuietly(avatarObjectKey);
 
         refreshTokenService.revokeAllForUser(userId);
         githubAccountRepository.findByUserId(userId).ifPresent(account -> disconnect(account, now));
@@ -168,6 +181,18 @@ public class UserServiceImpl implements UserService {
     private UserDataExportResponse.GroupMembership toMembership(GroupMemberEntity member) {
         return new UserDataExportResponse.GroupMembership(member.getGroup().getId(), member.getGroup().getName(),
                 member.getRole().name(), member.getStatus().name(), member.getJoinedAt());
+    }
+
+    private void deleteAvatarObjectQuietly(String objectKey) {
+        if (objectKey == null) {
+            return;
+        }
+        try {
+            avatarStorage.delete(objectKey);
+        } catch (RuntimeException exception) {
+            //---- A conta já foi anonimizada; um objeto órfão não pode desfazer a exclusão.
+            log.warn("Falha ao remover avatar da conta excluída: key={}", objectKey, exception);
+        }
     }
 
     private void disconnect(GitHubAccountEntity account, Instant now) {
