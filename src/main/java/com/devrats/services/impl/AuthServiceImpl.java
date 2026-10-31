@@ -171,7 +171,7 @@ public class AuthServiceImpl implements AuthService {
         if (username == null) {
             return null;
         }
-        return userRepository.findByUsernameIgnoreCase(username).orElse(null);
+        return userRepository.findByUsername(username).orElse(null);
     }
 
     private static String normalizeUsername(String username) {

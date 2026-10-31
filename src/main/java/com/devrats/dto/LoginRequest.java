@@ -1,7 +1,9 @@
 package com.devrats.dto;
 
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -12,11 +14,14 @@ import jakarta.validation.constraints.Size;
  */
 public record LoginRequest(
         @Deprecated(since = "login por identificador")
+        @Email(message = "E-mail inválido")
         @Size(max = 320, message = "E-mail inválido")
         String email,
+        @Pattern(regexp = "^[^\\p{Cntrl}]+$", message = "Identificador inválido")
         @Size(max = 320, message = "Identificador inválido")
         String identifier,
         @NotBlank(message = "Senha é obrigatória")
+        @Size(max = 128, message = "Senha inválida")
         String password
 ) {
 

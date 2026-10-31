@@ -179,6 +179,16 @@ class AuthAndWebhookIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void shouldRejectUnknownEmailIdentifier() throws Exception {
+        login("""
+                {"identifier":"missing%s@test.local","password":"%s"}
+                """.formatted(UUID.randomUUID().toString().substring(0, 8), VALID_PASSWORD))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+                .andExpect(jsonPath("$.detail").value(INVALID_CREDENTIALS_MESSAGE));
+    }
+
+    @Test
     void shouldRejectLoginWithoutEmailOrIdentifier() throws Exception {
         login("""
                 {"password":"%s"}
