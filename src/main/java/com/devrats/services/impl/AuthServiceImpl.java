@@ -193,8 +193,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UnauthorizedException invalidCredentials() {
-        return new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "E-mail, usu?rio ou senha inv?lidos");
-    }
+        return new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "E-mail, usuário ou senha inválidos");
     }
 
     private AuthSession startSession(UserEntity user, String userAgent) {
