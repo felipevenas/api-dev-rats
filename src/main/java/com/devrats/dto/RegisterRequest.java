@@ -23,4 +23,11 @@ public record RegisterRequest(
         ExperienceLevel experienceLevel,
         @Size(max = 5, message = "informe no máximo 5 tecnologias") List<@NotNull TechStack> primaryStack
 ) {
+
+    /** Convenience factory for tests and legacy callers that only send the required fields. */
+    public static RegisterRequest basic(String email, String password, String displayName,
+                                        String username, String timezone, String acceptedTermsVersion) {
+        return new RegisterRequest(email, password, displayName, username, timezone, acceptedTermsVersion,
+                null, null, null, null, null);
+    }
 }
