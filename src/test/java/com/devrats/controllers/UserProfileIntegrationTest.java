@@ -76,14 +76,14 @@ class UserProfileIntegrationTest extends IntegrationTestBase {
                         .with(authenticatedAs(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"bio":"","location":"","websiteUrl":"","primaryStack":[]}
+                                {"bio":"","location":"","websiteUrl":"","primaryStack":[],"clearExperienceLevel":true}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bio").doesNotExist())
                 .andExpect(jsonPath("$.location").doesNotExist())
                 .andExpect(jsonPath("$.websiteUrl").doesNotExist())
                 .andExpect(jsonPath("$.primaryStack").isEmpty())
-                .andExpect(jsonPath("$.experienceLevel").value("PLENO"));
+                .andExpect(jsonPath("$.experienceLevel").doesNotExist());
     }
 
     @Test

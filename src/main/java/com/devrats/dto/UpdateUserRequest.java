@@ -12,9 +12,8 @@ import java.util.List;
  * Atualização parcial do perfil: campos nulos são ignorados.
  *
  * <p>Regras de limpeza: {@code bio}/{@code location}/{@code websiteUrl} com string vazia
- * viram {@code null}; {@code primaryStack} com lista vazia limpa a stack. O
- * {@code experienceLevel} só é alterado quando enviado, pois o tipo enum não
- * distingue "ausente" de "nulo".</p>
+ * viram {@code null}; {@code primaryStack} com lista vazia limpa a stack. Para limpar o
+ * {@code experienceLevel}, envie {@code clearExperienceLevel: true}.</p>
  */
 public record UpdateUserRequest(
         @Size(min = 2, max = 120) String displayName,
@@ -27,6 +26,7 @@ public record UpdateUserRequest(
         @Size(max = 120) String location,
         @Size(max = 300) @Pattern(regexp = "^$|^https?://\\S+$", message = "deve ser uma URL http ou https") String websiteUrl,
         ExperienceLevel experienceLevel,
-        @Size(max = 5, message = "informe no máximo 5 tecnologias") List<@NotNull TechStack> primaryStack
+        @Size(max = 5, message = "informe no máximo 5 tecnologias") List<@NotNull TechStack> primaryStack,
+        Boolean clearExperienceLevel
 ) {
 }

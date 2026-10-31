@@ -99,7 +99,9 @@ public class UserServiceImpl implements UserService {
         if (request.websiteUrl() != null) {
             user.setWebsiteUrl(UserViewHelper.normalizeOptionalText(request.websiteUrl()));
         }
-        if (request.experienceLevel() != null) {
+        if (Boolean.TRUE.equals(request.clearExperienceLevel())) {
+            user.setExperienceLevel(null);
+        } else if (request.experienceLevel() != null) {
             user.setExperienceLevel(request.experienceLevel());
         }
         if (request.primaryStack() != null) {
