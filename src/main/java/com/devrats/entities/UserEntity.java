@@ -1,5 +1,6 @@
 package com.devrats.entities;
 
+import com.devrats.enums.AvatarSource;
 import com.devrats.enums.ExperienceLevel;
 import com.devrats.enums.UserStatus;
 import jakarta.persistence.Column;
@@ -61,6 +62,13 @@ public class UserEntity {
     /** CSV list with up to 5 technologies. */
     @Column(name = "primary_stack", length = 200)
     private String primaryStack;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "avatar_source", nullable = false, length = 16)
+    private AvatarSource avatarSource = AvatarSource.NONE;
+
+    @Column(name = "avatar_object_key", length = 300)
+    private String avatarObjectKey;
 
     @Column(nullable = false, length = 64)
     private String timezone;
