@@ -1,6 +1,7 @@
 package com.devrats.services.impl;
 
 import com.devrats.dto.ActivityCalendarResponse;
+import com.devrats.dto.ActivityCommitResponse;
 import com.devrats.dto.ActivityDayResponse;
 import com.devrats.dto.ChallengeProgressResponse;
 import com.devrats.dto.ChallengeResultResponse;
@@ -10,17 +11,27 @@ import com.devrats.entities.AuditLogEntity;
 import com.devrats.entities.ChallengeEntity;
 import com.devrats.entities.ChallengeParticipantEntity;
 import com.devrats.entities.ChallengeResultEntity;
+import com.devrats.entities.EligibleCommitEntity;
+import com.devrats.entities.GitHubAccountEntity;
+import com.devrats.entities.GitHubRepositoryEntity;
 import com.devrats.entities.GroupEntity;
 import com.devrats.enums.ActivityStatus;
 import com.devrats.enums.AuditAction;
 import com.devrats.enums.ChallengeStatus;
+import com.devrats.enums.EligibilityStatus;
+import com.devrats.enums.GitHubOwnerType;
 import com.devrats.enums.ParticipantStatus;
+import com.devrats.enums.VerificationMode;
 import com.devrats.exceptions.ErrorCode;
 import com.devrats.exceptions.NotFoundException;
 import com.devrats.repositories.AuditLogRepository;
 import com.devrats.repositories.ChallengeParticipantRepository;
 import com.devrats.repositories.ChallengeRepository;
+import com.devrats.repositories.ChallengeRepositoryRepository;
 import com.devrats.repositories.ChallengeResultRepository;
+import com.devrats.repositories.EligibleCommitRepository;
+import com.devrats.repositories.GitHubAccountRepository;
+import com.devrats.repositories.GitHubRepositoryRepository;
 import com.devrats.repositories.GroupRepository;
 import com.devrats.repositories.MemberDailyActivityRepository;
 import com.devrats.services.GitHubIntegrationService;
@@ -29,6 +40,7 @@ import com.devrats.services.ProgressService;
 import com.devrats.utils.ActivityDateHelper;
 import com.devrats.utils.ChallengeViewHelper;
 import com.devrats.utils.StreakHelper;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,12 +57,18 @@ import java.util.stream.Collectors;
 @Service
 public class ProgressServiceImpl implements ProgressService {
 
+    private static final int MAX_ACTIVITY_COMMITS = 50;
+
     private final ChallengeRepository challengeRepository;
     private final ChallengeParticipantRepository participantRepository;
     private final ChallengeResultRepository resultRepository;
     private final MemberDailyActivityRepository activityRepository;
     private final GroupRepository groupRepository;
     private final AuditLogRepository auditLogRepository;
+    private final EligibleCommitRepository eligibleCommitRepository;
+    private final GitHubAccountRepository githubAccountRepository;
+    private final ChallengeRepositoryRepository challengeRepositoryRepository;
+    private final GitHubRepositoryRepository githubRepositoryRepository;
     private final GroupAccessService accessService;
     private final GitHubIntegrationService githubIntegrationService;
     private final Clock clock;
@@ -61,6 +79,10 @@ public class ProgressServiceImpl implements ProgressService {
                                MemberDailyActivityRepository activityRepository,
                                GroupRepository groupRepository,
                                AuditLogRepository auditLogRepository,
+                               EligibleCommitRepository eligibleCommitRepository,
+                               GitHubAccountRepository githubAccountRepository,
+                               ChallengeRepositoryRepository challengeRepositoryRepository,
+                               GitHubRepositoryRepository githubRepositoryRepository,
                                GroupAccessService accessService,
                                GitHubIntegrationService githubIntegrationService,
                                Clock clock) {
@@ -70,6 +92,10 @@ public class ProgressServiceImpl implements ProgressService {
         this.activityRepository = activityRepository;
         this.groupRepository = groupRepository;
         this.auditLogRepository = auditLogRepository;
+        this.eligibleCommitRepository = eligibleCommitRepository;
+        this.githubAccountRepository = githubAccountRepository;
+        this.challengeRepositoryRepository = challengeRepositoryRepository;
+        this.githubRepositoryRepository = githubRepositoryRepository;
         this.accessService = accessService;
         this.githubIntegrationService = githubIntegrationService;
         this.clock = clock;
@@ -136,6 +162,59 @@ public class ProgressServiceImpl implements ProgressService {
             cursor = cursor.plusDays(1);
         }
         return new ActivityCalendarResponse(challengeId, target, challenge.getTimezone(), rangeFrom, rangeTo, days);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivityCommitResponse> listActivityCommits(UUID challengeId, UUID actorId, UUID targetUserId,
+                                                            LocalDate date, int limit) {
+        ChallengeEntity challenge = accessService.requireChallengeMember(challengeId, actorId);
+        UUID target = targetUserId == null ? actorId : targetUserId;
+        ChallengeParticipantEntity participant = participantRepository
+                .findByChallengeIdAndUserId(challengeId, target)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.CHALLENGE_NOT_FOUND));
+
+        Long authorGithubId = githubAccountRepository.findByUserId(participant.getUser().getId())
+                .map(GitHubAccountEntity::getGithubUserId)
+                .orElse(null);
+        if (authorGithubId == null) {
+            //---- Sem identidade GitHub verificada não existe commit atribuível ao participante.
+            return List.of();
+        }
+
+        ZoneId zone = ActivityDateHelper.parseZone(challenge.getTimezone());
+        Instant from = date.atStartOfDay(zone).toInstant();
+        Instant to = date.plusDays(1).atStartOfDay(zone).toInstant();
+        //---- O dia só vale dentro da janela efetiva do participante no desafio.
+        if (from.isBefore(challenge.getStartsAt())) {
+            from = challenge.getStartsAt();
+        }
+        if (participant.getJoinedAt() != null && participant.getJoinedAt().isAfter(from)) {
+            from = participant.getJoinedAt();
+        }
+        if (challenge.getEndsAt() != null) {
+            //---- endsAt é inclusivo no domínio; plusNanos mantém o limite aberto do intervalo.
+            Instant challengeEnd = challenge.getEndsAt().plusNanos(1);
+            if (challengeEnd.isBefore(to)) {
+                to = challengeEnd;
+            }
+        }
+        if (!from.isBefore(to)) {
+            return List.of();
+        }
+
+        Set<UUID> repositoryIds = eligibleRepositoryIds(challenge, authorGithubId);
+        if (repositoryIds.isEmpty()) {
+            return List.of();
+        }
+
+        int safeLimit = Math.min(Math.max(limit, 1), MAX_ACTIVITY_COMMITS);
+        return eligibleCommitRepository
+                .findEligibleByAuthorInRepositoriesAndWindow(authorGithubId, EligibilityStatus.ELIGIBLE, from, to,
+                        repositoryIds, Limit.of(safeLimit))
+                .stream()
+                .map(this::toActivityCommit)
+                .toList();
     }
 
     @Override
@@ -247,6 +326,27 @@ public class ProgressServiceImpl implements ProgressService {
                 challenge.getStatus().name(), challenge.getTargetValidDays(), participant.getValidDays(), percent,
                 participant.getCurrentStreak(), participant.getBestStreak(), rank, participant.getLastValidDate(),
                 challenge.getStartsAt(), challenge.getEndsAt());
+    }
+
+    private Set<UUID> eligibleRepositoryIds(ChallengeEntity challenge, Long authorGithubId) {
+        if (challenge.getVerificationMode() == VerificationMode.SELECTED_REPOSITORIES) {
+            return challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challenge.getId()).stream()
+                    .map(link -> link.getGithubRepository().getId())
+                    .collect(Collectors.toSet());
+        }
+        return githubRepositoryRepository.findAllByOwnerGithubUserId(authorGithubId).stream()
+                .filter(repository -> repository.getOwnerType() == GitHubOwnerType.USER)
+                .filter(repository -> !repository.isArchived())
+                .filter(repository -> challenge.isAllowForks() || !repository.isFork())
+                .map(GitHubRepositoryEntity::getId)
+                .collect(Collectors.toSet());
+    }
+
+    private ActivityCommitResponse toActivityCommit(EligibleCommitEntity commit) {
+        String fullName = commit.getGithubRepository().getFullName();
+        return new ActivityCommitResponse(commit.getCommitSha(), fullName,
+                "https://github.com/" + fullName + "/commit/" + commit.getCommitSha(),
+                commit.getCommittedAt(), commit.getAuthorLogin());
     }
 
     private FeedItemResponse toFeedItem(AuditLogEntity log) {
