@@ -332,8 +332,11 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
 
     private String ensureUserToken(GitHubAccountEntity account) {
         Instant now = clock.instant();
-        if (account.getEncryptedAccessToken() != null && account.getAccessTokenExpiresAt() != null
-                && account.getAccessTokenExpiresAt().isAfter(now.plusSeconds(60))) {
+        //---- Apps created with "Expire user authorization tokens" disabled return no expires_in,
+        //---- so a stored token without expiry is valid until the user revokes it.
+        if (account.getEncryptedAccessToken() != null
+                && (account.getAccessTokenExpiresAt() == null
+                || account.getAccessTokenExpiresAt().isAfter(now.plusSeconds(60)))) {
             return cipherHelper.decrypt(account.getEncryptedAccessToken());
         }
         String refreshToken = cipherHelper.decrypt(account.getEncryptedRefreshToken());
