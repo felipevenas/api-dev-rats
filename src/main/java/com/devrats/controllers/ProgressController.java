@@ -1,6 +1,7 @@
 package com.devrats.controllers;
 
 import com.devrats.dto.ActivityCalendarResponse;
+import com.devrats.dto.ActivityCommitResponse;
 import com.devrats.dto.ChallengeProgressResponse;
 import com.devrats.dto.ChallengeResultResponse;
 import com.devrats.dto.DashboardResponse;
@@ -54,6 +55,17 @@ public class ProgressController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         UUID actorId = AuthenticatedUserHelper.getUserId(jwt);
         return ResponseEntity.ok(progressService.getActivity(challengeId, actorId, userId, from, to));
+    }
+
+    @GetMapping("/challenges/{challengeId}/activity/{date}/commits")
+    public ResponseEntity<List<ActivityCommitResponse>> activityCommits(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID challengeId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(defaultValue = "50") int limit) {
+        UUID actorId = AuthenticatedUserHelper.getUserId(jwt);
+        return ResponseEntity.ok(progressService.listActivityCommits(challengeId, actorId, userId, date, limit));
     }
 
     @GetMapping("/challenges/{challengeId}/result")
