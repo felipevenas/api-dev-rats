@@ -85,7 +85,7 @@ class AuthServiceImplTimezoneTest {
     }
 
     private RegisterRequest request(String timezone) {
-        return new RegisterRequest("new-user@test.local", "Str0ng!Passw0rd", "New User",
+        return RegisterRequest.basic("new-user@test.local", "Str0ng!Passw0rd", "New User",
                 "newuser", timezone, "2026-10");
     }
 }

@@ -7,6 +7,7 @@ import com.devrats.dto.PasswordResetResponse;
 import com.devrats.dto.RegisterRequest;
 import com.devrats.dto.UserResponse;
 import com.devrats.entities.UserEntity;
+import com.devrats.enums.TechStack;
 import com.devrats.enums.UserStatus;
 import com.devrats.exceptions.ConflictException;
 import com.devrats.exceptions.ErrorCode;
@@ -82,6 +83,12 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setTermsAcceptedAt(clock.instant());
         user.setTermsVersion(request.acceptedTermsVersion());
+        user.setBio(UserViewHelper.normalizeOptionalText(request.bio()));
+        user.setLocation(UserViewHelper.normalizeOptionalText(request.location()));
+        user.setWebsiteUrl(UserViewHelper.normalizeOptionalText(request.websiteUrl()));
+        user.setExperienceLevel(request.experienceLevel());
+        //---- Enum allowlist + dedupe happen in toCsv; the column stores a sorted CSV.
+        user.setPrimaryStack(TechStack.toCsv(request.primaryStack()));
         userRepository.save(user);
         return startSession(user, null);
     }

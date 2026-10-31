@@ -1,5 +1,6 @@
 package com.devrats.entities;
 
+import com.devrats.enums.ExperienceLevel;
 import com.devrats.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -43,6 +44,23 @@ public class UserEntity {
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
+
+    @Column(length = 280)
+    private String bio;
+
+    @Column(length = 120)
+    private String location;
+
+    @Column(name = "website_url", length = 300)
+    private String websiteUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "experience_level", length = 20)
+    private ExperienceLevel experienceLevel;
+
+    /** CSV list with up to 5 technologies. */
+    @Column(name = "primary_stack", length = 200)
+    private String primaryStack;
 
     @Column(nullable = false, length = 64)
     private String timezone;

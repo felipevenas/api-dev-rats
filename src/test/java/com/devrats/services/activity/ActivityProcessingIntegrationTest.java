@@ -177,7 +177,7 @@ class ActivityProcessingIntegrationTest extends IntegrationTestBase {
         String username = "user" + githubId;
         AuthSession session = authService.register(new RegisterRequest(
                 username + "@test.local", "Str0ng!Passw0rd", "Activity " + githubId, username,
-                "America/Sao_Paulo", "2026-10"));
+                "America/Sao_Paulo", "2026-10", null, null, null, null, null));
         UUID userId = session.response().user().id();
         UserEntity user = userRepository.findById(userId).orElseThrow();
 
@@ -212,7 +212,7 @@ class ActivityProcessingIntegrationTest extends IntegrationTestBase {
         String username = "user" + githubId;
         AuthSession session = authService.register(new RegisterRequest(
                 username + "@test.local", "Str0ng!Passw0rd", "Activity " + githubId, username,
-                "America/Sao_Paulo", "2026-10"));
+                "America/Sao_Paulo", "2026-10", null, null, null, null, null));
         UUID userId = session.response().user().id();
         UserEntity user = userRepository.findById(userId).orElseThrow();
 

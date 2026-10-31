@@ -4,6 +4,7 @@ import com.devrats.dto.UserResponse;
 import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.UserEntity;
 import com.devrats.enums.GitHubConnectionStatus;
+import com.devrats.enums.TechStack;
 
 public final class UserViewHelper {
 
@@ -19,6 +20,11 @@ public final class UserViewHelper {
                 user.getUsername(),
                 user.getEmail(),
                 user.getAvatarUrl(),
+                user.getBio(),
+                user.getLocation(),
+                user.getWebsiteUrl(),
+                user.getExperienceLevel(),
+                TechStack.fromCsv(user.getPrimaryStack()),
                 user.getTimezone(),
                 user.isNotifyDailyGoal(),
                 user.isNotifyMilestones(),
@@ -31,5 +37,17 @@ public final class UserViewHelper {
 
     public static String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase();
+    }
+
+    /**
+     * Normaliza campos opcionais de texto: string em branco vira {@code null},
+     * o restante é armazenado sem espaços nas pontas.
+     */
+    public static String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
