@@ -1,4 +1,4 @@
--- DevRats MVP baseline. Flyway owns the schema; Hibernate only validates it.
+-- DevStreak MVP baseline. Flyway owns the schema; Hibernate only validates it.
 -- Instants are stored as timestamptz; activity dates are local dates in the challenge timezone.
 
 CREATE TABLE users (
