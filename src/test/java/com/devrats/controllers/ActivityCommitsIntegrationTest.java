@@ -324,7 +324,7 @@ class ActivityCommitsIntegrationTest extends IntegrationTestBase {
 
     private UserEntity register(String prefix) {
         String random = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        AuthSession session = authService.register(new RegisterRequest(
+        AuthSession session = authService.register(RegisterRequest.basic(
                 prefix + "-" + random + "@test.local", "Str0ng!Passw0rd", "User " + random,
                 prefix + random, "America/Sao_Paulo", "2026-10"));
         return userRepository.findById(session.response().user().id()).orElseThrow();
