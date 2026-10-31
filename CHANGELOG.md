@@ -13,6 +13,7 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 - Fuso horário padrão em Brasília para novos cadastros e desafios.
 - Login com e-mail ou nome de usuário, mantendo compatibilidade com o payload antigo.
+- Campos de perfil: bio, localização, site, nível de experiência e stack principal.
 
 ### 📝 Documentação
 
