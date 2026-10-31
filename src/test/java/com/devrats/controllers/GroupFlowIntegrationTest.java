@@ -115,6 +115,45 @@ class GroupFlowIntegrationTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.currentChallenge.participantCount").value(2));
     }
 
+    @Test
+    void shouldCreateGroupWithBrasilia_whenTimezoneIsOmitted() throws Exception {
+        AuthSession owner = register("OwnerNoTz");
+        UUID ownerId = owner.response().user().id();
+
+        String groupBody = """
+                {"name":"Grupo sem fuso","description":null,"maxMembers":10,
+                 "challenge":{"verificationMode":"OWN_REPOSITORIES","targetValidDays":5,
+                              "startsAt":"%s","repositoryIds":[]}}
+                """.formatted(Instant.now());
+
+        mockMvc.perform(post("/api/v1/groups")
+                        .with(authenticatedAs(ownerId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groupBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.timezone").value("America/Sao_Paulo"))
+                .andExpect(jsonPath("$.currentChallenge.timezone").value("America/Sao_Paulo"));
+    }
+
+    @Test
+    void shouldRejectInvalidTimezoneOnCreateGroup() throws Exception {
+        AuthSession owner = register("OwnerBadTz");
+        UUID ownerId = owner.response().user().id();
+
+        String groupBody = """
+                {"name":"Grupo fuso inválido","description":null,"timezone":"Mars/Olympus","maxMembers":10,
+                 "challenge":{"verificationMode":"OWN_REPOSITORIES","targetValidDays":5,
+                              "startsAt":"%s","repositoryIds":[]}}
+                """.formatted(Instant.now());
+
+        mockMvc.perform(post("/api/v1/groups")
+                        .with(authenticatedAs(ownerId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(groupBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
     private AuthSession register(String name) {
         String random = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         return authService.register(new RegisterRequest(

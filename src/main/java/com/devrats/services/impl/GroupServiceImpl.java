@@ -20,6 +20,7 @@ import com.devrats.enums.ParticipantStatus;
 import com.devrats.exceptions.ForbiddenException;
 import com.devrats.exceptions.NotFoundException;
 import com.devrats.exceptions.ErrorCode;
+import com.devrats.exceptions.ValidationException;
 import com.devrats.repositories.ChallengeParticipantRepository;
 import com.devrats.repositories.ChallengeRepository;
 import com.devrats.repositories.GroupMemberRepository;
@@ -79,7 +80,7 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public GroupResponse createGroup(UUID creatorId, CreateGroupRequest request) {
-        ActivityDateHelper.parseZone(request.timezone());
+        String timezone = resolveTimezone(request.timezone());
         UserEntity creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
         int maxMembers = request.maxMembers() == null ? properties.getGroups().getMaxMembers() : request.maxMembers();
@@ -88,7 +89,7 @@ public class GroupServiceImpl implements GroupService {
         group.setName(request.name().trim());
         group.setDescription(request.description());
         group.setCreator(creator);
-        group.setTimezone(request.timezone());
+        group.setTimezone(timezone);
         group.setMaxMembers(maxMembers);
         group.setStatus(GroupStatus.ACTIVE);
         groupRepository.save(group);
@@ -178,6 +179,14 @@ public class GroupServiceImpl implements GroupService {
         memberRepository.save(member);
         removeParticipant(groupId, userId, now, ParticipantStatus.LEFT);
         auditService.record(userId, "GROUP", groupId, AuditAction.MEMBER_LEFT, null);
+    }
+
+    private String resolveTimezone(String timezone) {
+        try {
+            return ActivityDateHelper.resolveTimezone(timezone);
+        } catch (IllegalArgumentException exception) {
+            throw new ValidationException(exception.getMessage());
+        }
     }
 
     private void removeParticipant(UUID groupId, UUID userId, Instant now, ParticipantStatus status) {

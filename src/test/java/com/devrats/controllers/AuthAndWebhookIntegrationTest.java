@@ -52,6 +52,38 @@ class AuthAndWebhookIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    void shouldRegisterWithBrasilia_whenTimezoneIsOmitted() throws Exception {
+        String email = "auth-tz-" + UUID.randomUUID() + "@test.local";
+        String username = "tz" + UUID.randomUUID().toString().substring(0, 8);
+        String body = """
+                {"email":"%s","password":"Str0ng!Passw0rd","displayName":"TZ Test",
+                 "username":"%s","acceptedTermsVersion":"2026-10"}
+                """.formatted(email, username);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.user.timezone").value("America/Sao_Paulo"));
+    }
+
+    @Test
+    void shouldRejectInvalidTimezoneOnRegister() throws Exception {
+        String email = "auth-tz-invalid-" + UUID.randomUUID() + "@test.local";
+        String username = "tzi" + UUID.randomUUID().toString().substring(0, 8);
+        String body = """
+                {"email":"%s","password":"Str0ng!Passw0rd","displayName":"TZ Test",
+                 "username":"%s","timezone":"Mars/Olympus","acceptedTermsVersion":"2026-10"}
+                """.formatted(email, username);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void shouldRejectInvalidWebhookSignature() throws Exception {
         String payload = "{\"zen\":\"ping\"}";
 

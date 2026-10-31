@@ -65,7 +65,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthSession register(RegisterRequest request) {
         String email = UserViewHelper.normalizeEmail(request.email());
-        ActivityDateHelper.parseZone(request.timezone());
+        String timezone = resolveTimezone(request.timezone());
         PasswordPolicyHelper.validate(request.password());
         if (userRepository.existsByEmailIgnoreCase(email)
                 || userRepository.existsByUsernameIgnoreCase(request.username())) {
@@ -77,7 +77,7 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(email);
         user.setUsername(request.username().toLowerCase());
         user.setDisplayName(request.displayName().trim());
-        user.setTimezone(request.timezone());
+        user.setTimezone(timezone);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setTermsAcceptedAt(clock.instant());
         user.setTermsVersion(request.acceptedTermsVersion());
@@ -131,6 +131,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void confirmPasswordReset(String token, String newPassword) {
         passwordResetService.confirmReset(token, newPassword);
+    }
+
+    private String resolveTimezone(String timezone) {
+        try {
+            return ActivityDateHelper.resolveTimezone(timezone);
+        } catch (IllegalArgumentException exception) {
+            throw new ValidationException(exception.getMessage());
+        }
     }
 
     private AuthSession startSession(UserEntity user, String userAgent) {

@@ -9,6 +9,10 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ## [Não publicado]
 
+### 🚀 Adicionado
+
+- Fuso horário padrão em Brasília para novos cadastros e desafios.
+
 ### 📝 Documentação
 
 - README padronizado com badges, arquitetura, configuração, API, governança e licença.
