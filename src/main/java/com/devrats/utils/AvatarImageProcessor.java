@@ -5,8 +5,10 @@ import com.devrats.exceptions.ErrorCode;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -39,7 +41,6 @@ public final class AvatarImageProcessor {
     public static byte[] process(byte[] source, long maxBytes) {
         validatePayload(source, maxBytes);
         BufferedImage image = readImage(source);
-        validateDimensions(image.getWidth(), image.getHeight());
         BufferedImage normalized = cropAndResize(image);
         return encodeJpeg(normalized);
     }
@@ -59,12 +60,27 @@ public final class AvatarImageProcessor {
     }
 
     private static BufferedImage readImage(byte[] source) {
-        try {
-            BufferedImage image = ImageIO.read(new ByteArrayInputStream(source));
-            if (image == null) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
+            if (input == null) {
                 throw new DomainException(ErrorCode.AVATAR_INVALID_FORMAT, "Arquivo de imagem inválido");
             }
-            return image;
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                throw new DomainException(ErrorCode.AVATAR_INVALID_FORMAT, "Arquivo de imagem inválido");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                //---- Check the declared dimensions before decoding to avoid decompression bombs.
+                validateDimensions(reader.getWidth(0), reader.getHeight(0));
+                BufferedImage image = reader.read(0);
+                if (image == null) {
+                    throw new DomainException(ErrorCode.AVATAR_INVALID_FORMAT, "Arquivo de imagem inválido");
+                }
+                return image;
+            } finally {
+                reader.dispose();
+            }
         } catch (IOException exception) {
             throw new DomainException(ErrorCode.AVATAR_INVALID_FORMAT, "Arquivo de imagem inválido");
         }

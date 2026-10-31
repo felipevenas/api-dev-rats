@@ -16,4 +16,5 @@ FROM github_accounts ga
 WHERE ga.user_id = u.id
   AND ga.connection_status = 'CONNECTED'
   AND ga.avatar_url IS NOT NULL
-  AND u.avatar_url IS NULL;
+  AND u.avatar_url IS NULL
+  AND u.status <> 'DELETED';

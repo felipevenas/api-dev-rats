@@ -112,7 +112,8 @@ public class AppProperties {
         public boolean isConfigured() {
             return bucket != null && !bucket.isBlank()
                     && accessKey != null && !accessKey.isBlank()
-                    && secretKey != null && !secretKey.isBlank();
+                    && secretKey != null && !secretKey.isBlank()
+                    && publicBaseUrl != null && !publicBaseUrl.isBlank();
         }
     }
 }

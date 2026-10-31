@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.net.URI;
+import java.time.Duration;
 
 /**
  * Cliente S3 síncrono compartilhado pela aplicação.
@@ -101,6 +102,9 @@ public class S3AvatarStorage implements AvatarStorage {
                 .region(Region.of(storage.getRegion()))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(storage.getAccessKey(), storage.getSecretKey())))
+                .overrideConfiguration(configuration -> configuration
+                        .apiCallTimeout(Duration.ofSeconds(10))
+                        .apiCallAttemptTimeout(Duration.ofSeconds(5)))
                 .httpClientBuilder(UrlConnectionHttpClient.builder());
         if (storage.getEndpoint() != null && !storage.getEndpoint().isBlank()) {
             builder.endpointOverride(URI.create(storage.getEndpoint()));
