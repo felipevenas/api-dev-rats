@@ -12,6 +12,8 @@ public record UserDataExportResponse(
         String displayName,
         String username,
         String email,
+        String avatarUrl,
+        String avatarSource,
         String bio,
         String location,
         String websiteUrl,

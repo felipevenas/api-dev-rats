@@ -128,6 +128,7 @@ public class UserServiceImpl implements UserService {
                 .map(this::toMembership)
                 .toList();
         return new UserDataExportResponse(user.getId(), user.getDisplayName(), user.getUsername(), user.getEmail(),
+                user.getAvatarUrl(), user.getAvatarSource() == null ? "NONE" : user.getAvatarSource().name(),
                 user.getBio(), user.getLocation(), user.getWebsiteUrl(), user.getExperienceLevel(),
                 TechStack.fromCsv(user.getPrimaryStack()), user.getTimezone(), user.getCreatedAt(), groups);
     }
