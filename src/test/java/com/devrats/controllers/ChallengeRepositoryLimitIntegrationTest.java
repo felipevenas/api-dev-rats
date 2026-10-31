@@ -76,7 +76,8 @@ class ChallengeRepositoryLimitIntegrationTest extends IntegrationTestBase {
     private AuthSession register() {
         String random = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         return authService.register(new RegisterRequest("limit-" + random + "@test.local",
-                "Str0ng!Passw0rd", "Repo Limit", "limit" + random, "America/Sao_Paulo", "2026-10"));
+                "Str0ng!Passw0rd", "Repo Limit", "limit" + random, "America/Sao_Paulo", "2026-10",
+                null, null, null, null, null));
     }
 
     private List<UUID> createRepositories(UUID userId, long installationId, int count) {

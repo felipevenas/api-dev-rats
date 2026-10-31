@@ -9,6 +9,7 @@ import com.devrats.entities.UserEntity;
 import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.MemberStatus;
 import com.devrats.enums.ParticipantStatus;
+import com.devrats.enums.TechStack;
 import com.devrats.enums.UserStatus;
 import com.devrats.exceptions.ErrorCode;
 import com.devrats.exceptions.NotFoundException;
@@ -88,6 +89,22 @@ public class UserServiceImpl implements UserService {
         if (request.notifyIntegration() != null) {
             user.setNotifyIntegration(request.notifyIntegration());
         }
+        //---- Perfil público: texto em branco limpa o campo; lista vazia limpa a stack.
+        if (request.bio() != null) {
+            user.setBio(UserViewHelper.normalizeOptionalText(request.bio()));
+        }
+        if (request.location() != null) {
+            user.setLocation(UserViewHelper.normalizeOptionalText(request.location()));
+        }
+        if (request.websiteUrl() != null) {
+            user.setWebsiteUrl(UserViewHelper.normalizeOptionalText(request.websiteUrl()));
+        }
+        if (request.experienceLevel() != null) {
+            user.setExperienceLevel(request.experienceLevel());
+        }
+        if (request.primaryStack() != null) {
+            user.setPrimaryStack(TechStack.toCsv(request.primaryStack()));
+        }
         userRepository.save(user);
         return UserViewHelper.toResponse(user, githubAccountRepository.findByUserId(userId).orElse(null));
     }
@@ -100,7 +117,8 @@ public class UserServiceImpl implements UserService {
                 .map(this::toMembership)
                 .toList();
         return new UserDataExportResponse(user.getId(), user.getDisplayName(), user.getUsername(), user.getEmail(),
-                user.getTimezone(), user.getCreatedAt(), groups);
+                user.getBio(), user.getLocation(), user.getWebsiteUrl(), user.getExperienceLevel(),
+                TechStack.fromCsv(user.getPrimaryStack()), user.getTimezone(), user.getCreatedAt(), groups);
     }
 
     @Override

@@ -162,6 +162,7 @@ class GroupFlowIntegrationTest extends IntegrationTestBase {
                 name,
                 "user" + random,
                 "America/Sao_Paulo",
-                "2026-10"));
+                "2026-10",
+                null, null, null, null, null));
     }
 }
