@@ -152,6 +152,8 @@ Copie `.env.example` para `.env` e preencha os segredos. As principais variávei
 | `GITHUB_PRIVATE_KEY` | PEM PKCS#1/PKCS#8 da GitHub App ou PKCS#8 em base64 |
 | `GITHUB_WEBHOOK_SECRET` | Segredo do webhook |
 | `GITHUB_APP_SLUG` | Slug usado na URL de instalação |
+| `GITHUB_CALLBACK_URL` | Callback OAuth registrado na GitHub App |
+| `GITHUB_SETUP_URL` | Setup URL registrada na GitHub App |
 | `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas, separadas por vírgula |
 | `APP_FRONTEND_URL` | URL usada nos redirects OAuth |
 
@@ -166,6 +168,9 @@ Segredos nunca são versionados. O profile `local` precisa ser ativado explicita
 5. Callback URL: `/api/v1/integrations/github/callback`.
 6. Setup URL: `/api/v1/integrations/github/setup`.
 7. Gere a chave privada e preencha as variáveis acima.
+
+O callback e o setup sempre redirecionam para `APP_FRONTEND_URL`: sucesso em `?github=connected` ou
+`?github=installed`, falha em `?github=error&reason=<codigo>`. Assim o usuário não fica preso em uma resposta JSON.
 
 Para desenvolvimento local, exponha a porta 8080 com `smee.io` ou `ngrok` e use a URL pública no webhook da GitHub App.
 

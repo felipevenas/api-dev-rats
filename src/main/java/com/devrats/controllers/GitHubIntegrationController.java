@@ -47,15 +47,18 @@ public class GitHubIntegrationController {
     }
 
     @GetMapping("/callback")
-    public RedirectView callback(@RequestParam String code, @RequestParam String state) {
-        return new RedirectView(integrationService.handleCallback(code, state));
+    public RedirectView callback(@RequestParam(required = false) String code,
+                                 @RequestParam(required = false) String state,
+                                 @RequestParam(required = false) String error) {
+        return new RedirectView(integrationService.handleCallback(code, state, error));
     }
 
     @GetMapping("/setup")
-    public RedirectView setup(@RequestParam("installation_id") Long installationId,
+    public RedirectView setup(@RequestParam(value = "installation_id", required = false) String installationId,
                               @RequestParam(value = "setup_action", required = false) String setupAction,
-                              @RequestParam(value = "state", required = false) String state) {
-        return new RedirectView(integrationService.handleSetup(installationId, setupAction, state));
+                              @RequestParam(value = "state", required = false) String state,
+                              @RequestParam(required = false) String error) {
+        return new RedirectView(integrationService.handleSetup(installationId, setupAction, state, error));
     }
 
     @PostMapping("/sync")

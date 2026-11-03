@@ -7,15 +7,14 @@ import com.devrats.dto.GitHubAuthorizeResponse;
 import com.devrats.dto.GitHubRepositoryResponse;
 import com.devrats.dto.GitHubStatusResponse;
 import com.devrats.dto.github.GitHubInstallation;
-import com.devrats.dto.github.GitHubInstallationList;
 import com.devrats.dto.github.GitHubRepository;
-import com.devrats.dto.github.GitHubRepositoryList;
 import com.devrats.dto.github.GitHubTokenResponse;
 import com.devrats.dto.github.GitHubUser;
 import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GitHubInstallationEntity;
 import com.devrats.entities.GitHubRepositoryEntity;
 import com.devrats.entities.UserEntity;
+import com.devrats.enums.AuditAction;
 import com.devrats.enums.AvatarSource;
 import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.GitHubOwnerType;
@@ -25,6 +24,7 @@ import com.devrats.exceptions.ConflictException;
 import com.devrats.exceptions.DomainException;
 import com.devrats.exceptions.ErrorCode;
 import com.devrats.exceptions.ForbiddenException;
+import com.devrats.exceptions.GitHubApiException;
 import com.devrats.exceptions.NotFoundException;
 import com.devrats.repositories.GitHubAccountRepository;
 import com.devrats.repositories.GitHubInstallationRepository;
@@ -37,23 +37,31 @@ import com.devrats.services.github.GitHubApiClient;
 import com.devrats.services.github.GitHubAppTokenProvider;
 import com.devrats.utils.TokenCipherHelper;
 import com.devrats.utils.TokenHelper;
-import com.devrats.utils.UserViewHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
+
+    private static final Logger log = LoggerFactory.getLogger(GitHubIntegrationServiceImpl.class);
 
     private final GitHubAccountRepository accountRepository;
     private final GitHubInstallationRepository installationRepository;
@@ -67,6 +75,7 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final CacheManager cacheManager;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     public GitHubIntegrationServiceImpl(GitHubAccountRepository accountRepository,
@@ -81,6 +90,7 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
                                         AuditService auditService,
                                         NotificationService notificationService,
                                         CacheManager cacheManager,
+                                        PlatformTransactionManager transactionManager,
                                         Clock clock) {
         this.accountRepository = accountRepository;
         this.installationRepository = installationRepository;
@@ -94,6 +104,7 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
         this.auditService = auditService;
         this.notificationService = notificationService;
         this.cacheManager = cacheManager;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.clock = clock;
     }
 
@@ -110,7 +121,8 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
                 .map(GitHubInstallationEntity::getInstallationId)
                 .toList();
         int repositoryCount = installationIds.isEmpty() ? 0
-                : (int) repositoryRepository.countByInstallationIdIn(installationIds);
+                : (int) repositoryRepository.countByInstallationIdInAndAccessStatusNot(installationIds,
+                RepositoryAccessStatus.REVOKED);
         return new GitHubStatusResponse(true, true, account.getGithubUsername(), account.getGithubUserId(),
                 installationIds.size(), repositoryCount, List.of("metadata:read", "contents:read"),
                 account.getConnectedAt(), account.getLastSyncedAt(), null);
@@ -139,119 +151,132 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
     }
 
     @Override
-    @Transactional
-    public String handleCallback(String code, String state) {
-        UUID userId = consumeState(state);
-        GitHubTokenResponse token = apiClient.exchangeCode(code);
-        if (token == null || token.accessToken() == null) {
-            throw new DomainException(ErrorCode.GITHUB_NOT_CONNECTED, "GitHub recusou a autorização");
+    public String handleCallback(String code, String state, String error) {
+        if (isPresent(error)) {
+            discardState(state);
+            return errorRedirect(githubErrorReason(error));
         }
-        GitHubUser githubUser = apiClient.getAuthenticatedUser(token.accessToken());
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
-        applyGitHubAvatar(user, githubUser.avatarUrl());
+        if (!isPresent(code) || !isPresent(state)) {
+            discardState(state);
+            return errorRedirect("invalid_request");
+        }
+        try {
+            UUID userId = consumeState(state);
+            GitHubTokenResponse token = apiClient.exchangeCode(code);
+            if (token == null || !isPresent(token.accessToken())) {
+                return errorRedirect("github_denied");
+            }
+            GitHubUser githubUser = apiClient.getAuthenticatedUser(token.accessToken());
+            if (githubUser == null || githubUser.id() == null) {
+                return errorRedirect("github_error");
+            }
 
-        accountRepository.findByGithubUserId(githubUser.id())
-                .filter(other -> !other.getUser().getId().equals(userId))
-                .ifPresent(other -> {
-                    throw new ConflictException(ErrorCode.GITHUB_ALREADY_CONNECTED);
-                });
-
-        GitHubAccountEntity account = accountRepository.findByUserId(userId).orElseGet(GitHubAccountEntity::new);
-        account.setUser(user);
-        account.setGithubUserId(githubUser.id());
-        account.setGithubUsername(githubUser.login());
-        account.setAvatarUrl(githubUser.avatarUrl());
-        account.setConnectionStatus(GitHubConnectionStatus.CONNECTED);
-        account.setDisconnectedAt(null);
-        account.setTokenKeyVersion(cipherHelper.getKeyId());
-        storeTokens(account, token);
-        accountRepository.save(account);
-
-        syncInstallations(account, token.accessToken());
-        auditService.record(userId, "GITHUB_ACCOUNT", account.getId(), com.devrats.enums.AuditAction.GITHUB_CONNECTED, null);
-        return appProperties.getFrontendUrl() + "?github=connected";
+            UUID accountId = persistAccount(userId, githubUser, token);
+            try {
+                syncInstallations(accountId, token.accessToken());
+            } catch (RuntimeException exception) {
+                //---- A conta já está conectada; a instalação pode ser sincronizada depois.
+                log.warn("Falha ao sincronizar instalações da conta {}: {}", userId, exception.getMessage());
+            }
+            log.info("Conta GitHub conectada para o usuário {}", userId);
+            return successRedirect("connected");
+        } catch (ForbiddenException exception) {
+            return errorRedirect("invalid_state");
+        } catch (ConflictException exception) {
+            return errorRedirect("conflict");
+        } catch (NotFoundException exception) {
+            return errorRedirect("user_not_found");
+        } catch (GitHubApiException exception) {
+            log.warn("GitHub indisponível no callback: {}", exception.getMessage());
+            return errorRedirect("github_unavailable");
+        } catch (DomainException exception) {
+            return errorRedirect(domainReason(exception));
+        } catch (RuntimeException exception) {
+            log.error("Erro inesperado no callback do GitHub", exception);
+            return errorRedirect("integration_error");
+        }
     }
 
     @Override
-    @Transactional
-    public String handleSetup(Long installationId, String setupAction, String state) {
-        UUID userId = consumeState(state);
-        GitHubAccountEntity account = accountRepository.findByUserId(userId)
-                .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED));
-        String userToken = ensureUserToken(account);
-        GitHubInstallationList authorized = apiClient.listUserInstallations(userToken);
-        GitHubInstallation installationInfo = authorized == null || authorized.installations() == null ? null
-                : authorized.installations().stream()
-                .filter(item -> installationId.equals(item.id()))
-                .findFirst()
-                .orElse(null);
-        if (installationInfo == null) {
-            throw new ForbiddenException("A instalação não pertence à sua conta GitHub");
+    public String handleSetup(String installationIdValue, String setupAction, String state, String error) {
+        if (isPresent(error)) {
+            discardState(state);
+            return errorRedirect(githubErrorReason(error));
         }
+        Long installationId = parseInstallationId(installationIdValue);
+        if (installationId == null || !isPresent(state)) {
+            discardState(state);
+            return errorRedirect("invalid_request");
+        }
+        try {
+            UUID userId = consumeState(state);
+            GitHubAccountEntity account = findConnectedAccount(userId);
+            String userToken = resolveUserToken(account);
+            GitHubInstallation installation = apiClient.listUserInstallations(userToken).stream()
+                    .filter(item -> installationId.equals(item.id()))
+                    .findFirst()
+                    .orElse(null);
+            if (installation == null) {
+                return errorRedirect("installation_not_owned");
+            }
 
-        GitHubInstallationEntity installation = installationRepository.findByInstallationId(installationId)
-                .orElseGet(GitHubInstallationEntity::new);
-        if (installation.getId() != null
-                && !installation.getGithubAccount().getId().equals(account.getId())) {
-            throw new ConflictException(ErrorCode.GITHUB_ALREADY_CONNECTED,
-                    "Esta instalação já está vinculada a outra conta");
+            persistInstallation(account.getId(), installation);
+            syncInstallationRepositories(installationId);
+            touchLastSynced(account.getId());
+            log.info("Instalação {} vinculada ao usuário {}", installationId, userId);
+            return successRedirect("installed");
+        } catch (ForbiddenException exception) {
+            return errorRedirect("invalid_state");
+        } catch (NotFoundException exception) {
+            return errorRedirect("user_not_found");
+        } catch (GitHubApiException exception) {
+            log.warn("GitHub indisponível no setup: {}", exception.getMessage());
+            return errorRedirect("github_unavailable");
+        } catch (DomainException exception) {
+            return errorRedirect(domainReason(exception));
+        } catch (RuntimeException exception) {
+            log.error("Erro inesperado no setup do GitHub", exception);
+            return errorRedirect("integration_error");
         }
-        installation.setGithubAccount(account);
-        installation.setInstallationId(installationId);
-        installation.setAccountLogin(installationInfo.account() == null
-                ? account.getGithubUsername() : installationInfo.account().login());
-        installation.setAccountType(installationInfo.account() == null
-                ? "User" : installationInfo.account().type());
-        installation.setSuspendedAt(installationInfo.suspendedAt());
-        installationRepository.save(installation);
-        syncInstallationRepositories(installation.getInstallationId());
-        return appProperties.getFrontendUrl() + "?github=installed";
     }
 
     @Override
-    @Transactional
     public void disconnect(UUID userId) {
         GitHubAccountEntity account = accountRepository.findByUserId(userId)
                 .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED));
-        Instant now = clock.instant();
-        account.setConnectionStatus(GitHubConnectionStatus.REVOKED);
-        account.setEncryptedAccessToken(null);
-        account.setEncryptedRefreshToken(null);
-        account.setDisconnectedAt(now);
-        accountRepository.save(account);
-
-        List<Long> installationIds = installationRepository.findAllByGithubAccountId(account.getId()).stream()
-                .map(GitHubInstallationEntity::getInstallationId)
-                .toList();
-        if (!installationIds.isEmpty()) {
-            repositoryRepository.findAllByInstallationIdInOrderByFullNameAsc(installationIds).forEach(repository -> {
-                repository.setAccessStatus(RepositoryAccessStatus.REVOKED);
-                repositoryRepository.save(repository);
-            });
+        String accessToken = decryptToken(account.getEncryptedAccessToken());
+        if (accessToken != null) {
+            //---- Best effort: a GitHub failure must never prevent the local disconnect.
+            try {
+                apiClient.revokeUserAuthorization(accessToken);
+            } catch (RuntimeException exception) {
+                log.warn("Falha ao revogar a autorização do GitHub do usuário {}: {}",
+                        userId, exception.getMessage());
+            }
         }
-        auditService.record(userId, "GITHUB_ACCOUNT", account.getId(),
-                com.devrats.enums.AuditAction.GITHUB_DISCONNECTED, null);
-        notificationService.notify(userId, NotificationType.INTEGRATION_ATTENTION, null,
-                "github-disconnected:" + account.getId(),
-                java.util.Map.of("reason", "GitHub desconectado; a verificação de commits está pausada"));
+
+        UUID accountId = transactionTemplate.execute(status -> markDisconnected(userId));
+        if (accountId != null) {
+            notificationService.notify(userId, NotificationType.INTEGRATION_ATTENTION, null,
+                    "github-disconnected:" + accountId,
+                    Map.of("reason", "GitHub desconectado; a verificação de commits está pausada"));
+        }
+        log.info("Conta GitHub desconectada para o usuário {}", userId);
     }
 
     @Override
-    @Transactional
     public void syncRepositories(UUID userId) {
-        GitHubAccountEntity account = accountRepository.findByUserId(userId)
-                .filter(found -> found.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
-                .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED));
-        List<GitHubInstallationEntity> installations = installationRepository.findAllByGithubAccountId(account.getId());
-        if (installations.isEmpty()) {
-            String userToken = ensureUserToken(account);
-            syncInstallations(account, userToken);
+        GitHubAccountEntity account = findConnectedAccount(userId);
+        List<Long> installationIds = installationRepository.findAllByGithubAccountId(account.getId()).stream()
+                .filter(installation -> installation.getSuspendedAt() == null)
+                .map(GitHubInstallationEntity::getInstallationId)
+                .toList();
+        if (installationIds.isEmpty()) {
+            syncInstallations(account.getId(), resolveUserToken(account));
             return;
         }
-        installations.forEach(installation -> syncInstallationRepositories(installation.getInstallationId()));
-        account.setLastSyncedAt(clock.instant());
-        accountRepository.save(account);
+        installationIds.forEach(this::syncInstallationRepositories);
+        touchLastSynced(account.getId());
     }
 
     @Override
@@ -273,43 +298,130 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
                 .map(this::toResponse);
     }
 
-    private void syncInstallations(GitHubAccountEntity account, String userAccessToken) {
-        GitHubInstallationList installations = apiClient.listUserInstallations(userAccessToken);
-        if (installations == null || installations.installations() == null) {
+    private UUID persistAccount(UUID userId, GitHubUser githubUser, GitHubTokenResponse token) {
+        UUID accountId = transactionTemplate.execute(status -> {
+            UserEntity user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+            accountRepository.findByGithubUserId(githubUser.id())
+                    .filter(other -> !other.getUser().getId().equals(userId))
+                    .ifPresent(other -> {
+                        throw new ConflictException(ErrorCode.GITHUB_ALREADY_CONNECTED);
+                    });
+
+            GitHubAccountEntity account = accountRepository.findByUserId(userId)
+                    .orElseGet(GitHubAccountEntity::new);
+            account.setUser(user);
+            account.setGithubUserId(githubUser.id());
+            account.setGithubUsername(githubUser.login());
+            account.setAvatarUrl(githubUser.avatarUrl());
+            account.setConnectionStatus(GitHubConnectionStatus.CONNECTED);
+            account.setDisconnectedAt(null);
+            account.setTokenKeyVersion(cipherHelper.getKeyId());
+            storeTokens(account, token);
+            GitHubAccountEntity saved = accountRepository.save(account);
+            applyGitHubAvatar(user, githubUser.avatarUrl());
+            return saved.getId();
+        });
+        if (accountId == null) {
+            throw new DomainException(ErrorCode.INTERNAL_ERROR, "Não foi possível salvar a conta do GitHub");
+        }
+        auditService.record(userId, "GITHUB_ACCOUNT", accountId, AuditAction.GITHUB_CONNECTED, null);
+        return accountId;
+    }
+
+    /**
+     * Sincroniza as instalações visíveis para a conta. As listagens do GitHub são paginadas no cliente
+     * e cada persistência acontece em uma transação curta, sem HTTP dentro do banco.
+     */
+    private void syncInstallations(UUID accountId, String userAccessToken) {
+        List<GitHubInstallation> installations = apiClient.listUserInstallations(userAccessToken);
+        if (installations == null) {
             return;
         }
-        for (GitHubInstallation installation : installations.installations()) {
-            GitHubInstallationEntity entity = installationRepository.findByInstallationId(installation.id())
+        Set<Long> currentInstallationIds = new HashSet<>();
+        for (GitHubInstallation installation : installations) {
+            if (installation.id() == null) {
+                continue;
+            }
+            currentInstallationIds.add(installation.id());
+            persistInstallation(accountId, installation);
+        }
+        pruneInstallations(accountId, currentInstallationIds);
+        for (Long installationId : currentInstallationIds) {
+            try {
+                syncInstallationRepositories(installationId);
+            } catch (RuntimeException exception) {
+                log.warn("Falha ao sincronizar a instalação {}: {}", installationId, exception.getMessage());
+            }
+        }
+        touchLastSynced(accountId);
+    }
+
+    private void persistInstallation(UUID accountId, GitHubInstallation installation) {
+        transactionTemplate.executeWithoutResult(status -> {
+            GitHubAccountEntity account = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED));
+            GitHubInstallationEntity entity = installationRepository
+                    .findByGithubAccountIdAndInstallationId(accountId, installation.id())
                     .orElseGet(GitHubInstallationEntity::new);
             entity.setGithubAccount(account);
             entity.setInstallationId(installation.id());
-            entity.setAccountLogin(installation.account().login());
-            entity.setAccountType(installation.account().type());
+            entity.setAccountLogin(installation.account() == null
+                    ? account.getGithubUsername() : installation.account().login());
+            entity.setAccountType(installation.account() == null
+                    ? "User" : installation.account().type());
             entity.setSuspendedAt(installation.suspendedAt());
             installationRepository.save(entity);
-            syncInstallationRepositories(installation.id());
-        }
-        account.setLastSyncedAt(clock.instant());
-        accountRepository.save(account);
+        });
+    }
+
+    //---- Remove vínculos antigos da conta (ex.: reconexão com outro GitHub) e libera repositórios órfãos.
+    private void pruneInstallations(UUID accountId, Set<Long> currentInstallationIds) {
+        transactionTemplate.executeWithoutResult(status -> {
+            List<GitHubInstallationEntity> existing = installationRepository.findAllByGithubAccountId(accountId);
+            for (GitHubInstallationEntity installation : existing) {
+                Long installationId = installation.getInstallationId();
+                if (currentInstallationIds.contains(installationId)) {
+                    continue;
+                }
+                installationRepository.delete(installation);
+                installationRepository.flush();
+                if (installationRepository.findAllByInstallationId(installationId).isEmpty()) {
+                    revokeRepositories(installationId);
+                }
+            }
+        });
     }
 
     private void syncInstallationRepositories(Long installationId) {
         String installationToken = tokenProvider.getInstallationToken(installationId);
-        GitHubRepositoryList repositories = apiClient.listInstallationRepositories(installationToken);
-        if (repositories == null || repositories.repositories() == null) {
+        List<GitHubRepository> repositories = apiClient.listInstallationRepositories(installationToken);
+        if (repositories == null) {
             return;
         }
-        for (GitHubRepository repository : repositories.repositories()) {
+        transactionTemplate.executeWithoutResult(status -> persistRepositories(installationId, repositories));
+    }
+
+    private void persistRepositories(Long installationId, List<GitHubRepository> repositories) {
+        Set<Long> currentRepositoryIds = new HashSet<>();
+        for (GitHubRepository repository : repositories) {
+            if (repository.id() == null) {
+                continue;
+            }
+            currentRepositoryIds.add(repository.id());
             GitHubRepositoryEntity entity = repositoryRepository.findByGithubRepositoryId(repository.id())
                     .orElseGet(GitHubRepositoryEntity::new);
             entity.setGithubRepositoryId(repository.id());
-            entity.setOwnerGithubUserId(repository.owner().id());
-            entity.setOwnerLogin(repository.owner().login());
-            entity.setOwnerType("Organization".equalsIgnoreCase(repository.owner().type())
+            entity.setOwnerGithubUserId(repository.owner() == null ? null : repository.owner().id());
+            entity.setOwnerLogin(repository.owner() == null || repository.owner().login() == null
+                    ? "unknown" : repository.owner().login());
+            entity.setOwnerType(repository.owner() != null
+                    && "Organization".equalsIgnoreCase(repository.owner().type())
                     ? GitHubOwnerType.ORGANIZATION : GitHubOwnerType.USER);
             entity.setRepositoryName(repository.name());
             entity.setFullName(repository.fullName());
-            entity.setVisibility(repository.privateRepository() ? "PRIVATE" : "PUBLIC");
+            entity.setVisibility(repository.visibility() == null
+                    ? (repository.privateRepository() ? "PRIVATE" : "PUBLIC") : repository.visibility());
             entity.setFork(repository.fork());
             entity.setArchived(repository.archived());
             entity.setInstallationId(installationId);
@@ -317,6 +429,57 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
             entity.setLastSyncedAt(clock.instant());
             repositoryRepository.save(entity);
         }
+        repositoryRepository.flush();
+        //---- Só os repositórios desta instalação podem ser revogados; outra conta/instalação fica intacta.
+        repositoryRepository.findAllByInstallationId(installationId).stream()
+                .filter(repository -> !currentRepositoryIds.contains(repository.getGithubRepositoryId()))
+                .filter(repository -> repository.getAccessStatus() != RepositoryAccessStatus.REVOKED)
+                .forEach(repository -> {
+                    repository.setAccessStatus(RepositoryAccessStatus.REVOKED);
+                    repositoryRepository.save(repository);
+                });
+    }
+
+    private UUID markDisconnected(UUID userId) {
+        GitHubAccountEntity account = accountRepository.findByUserId(userId)
+                .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED));
+        account.setConnectionStatus(GitHubConnectionStatus.REVOKED);
+        account.setEncryptedAccessToken(null);
+        account.setEncryptedRefreshToken(null);
+        account.setDisconnectedAt(clock.instant());
+        accountRepository.save(account);
+
+        List<Long> installationIds = installationRepository.findAllByGithubAccountId(account.getId()).stream()
+                .map(GitHubInstallationEntity::getInstallationId)
+                .toList();
+        for (Long installationId : installationIds) {
+            boolean sharedByConnectedAccount = installationRepository.findAllByInstallationId(installationId).stream()
+                    .filter(installation -> !installation.getGithubAccount().getId().equals(account.getId()))
+                    .anyMatch(installation -> installation.getGithubAccount().getConnectionStatus()
+                            == GitHubConnectionStatus.CONNECTED);
+            if (!sharedByConnectedAccount) {
+                revokeRepositories(installationId);
+            }
+        }
+        auditService.record(userId, "GITHUB_ACCOUNT", account.getId(), AuditAction.GITHUB_DISCONNECTED, null);
+        return account.getId();
+    }
+
+    private void revokeRepositories(Long installationId) {
+        repositoryRepository.findAllByInstallationId(installationId).forEach(repository -> {
+            if (repository.getAccessStatus() != RepositoryAccessStatus.REVOKED) {
+                repository.setAccessStatus(RepositoryAccessStatus.REVOKED);
+                repositoryRepository.save(repository);
+            }
+        });
+    }
+
+    private void touchLastSynced(UUID accountId) {
+        transactionTemplate.executeWithoutResult(status -> accountRepository.findById(accountId)
+                .ifPresent(account -> {
+                    account.setLastSyncedAt(clock.instant());
+                    accountRepository.save(account);
+                }));
     }
 
     private void applyGitHubAvatar(UserEntity user, String avatarUrl) {
@@ -341,7 +504,10 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
         }
     }
 
-    private String ensureUserToken(GitHubAccountEntity account) {
+    /**
+     * Resolve o token de usuário, renovando via HTTP fora de qualquer transação de banco.
+     */
+    private String resolveUserToken(GitHubAccountEntity account) {
         Instant now = clock.instant();
         //---- Apps created with "Expire user authorization tokens" disabled return no expires_in,
         //---- so a stored token without expiry is valid until the user revokes it.
@@ -359,9 +525,19 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
         if (refreshed == null || refreshed.accessToken() == null) {
             throw new DomainException(ErrorCode.GITHUB_NOT_CONNECTED, "Não foi possível renovar a conexão");
         }
-        storeTokens(account, refreshed);
-        accountRepository.save(account);
+        transactionTemplate.executeWithoutResult(status -> accountRepository.findById(account.getId())
+                .ifPresent(managed -> {
+                    storeTokens(managed, refreshed);
+                    accountRepository.save(managed);
+                }));
         return refreshed.accessToken();
+    }
+
+    private GitHubAccountEntity findConnectedAccount(UUID userId) {
+        return accountRepository.findByUserId(userId)
+                .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
+                .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED,
+                        "Conecte o GitHub antes de instalar a App"));
     }
 
     private String issueState(UUID userId) {
@@ -386,10 +562,83 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
         return userId;
     }
 
+    //---- Failed authorizations must not leave a live state behind for a later replay.
+    private void discardState(String state) {
+        if (!isPresent(state)) {
+            return;
+        }
+        Cache cache = cacheManager.getCache(CacheConfig.OAUTH_STATES);
+        if (cache instanceof CaffeineCache caffeineCache) {
+            caffeineCache.getNativeCache().asMap().remove(state);
+        }
+    }
+
     private GitHubRepositoryResponse toResponse(GitHubRepositoryEntity entity) {
         return new GitHubRepositoryResponse(entity.getId(), entity.getGithubRepositoryId(), entity.getFullName(),
                 entity.getOwnerLogin(), entity.getVisibility(), "PRIVATE".equals(entity.getVisibility()),
                 entity.isFork(), entity.getAccessStatus().name());
+    }
+
+    private String successRedirect(String status) {
+        return redirect(status, null);
+    }
+
+    private String errorRedirect(String reason) {
+        return redirect("error", reason);
+    }
+
+    private String redirect(String status, String reason) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(appProperties.getFrontendUrl())
+                .queryParam("github", status);
+        if (reason != null) {
+            builder.queryParam("reason", reason);
+        }
+        return builder.build().toUriString();
+    }
+
+    //---- Nunca ecoa o texto recebido do GitHub: apenas motivos conhecidos e curtos chegam ao frontend.
+    private String githubErrorReason(String error) {
+        return switch (error) {
+            case "access_denied" -> "access_denied";
+            case "redirect_uri_mismatch" -> "redirect_uri_mismatch";
+            case "application_suspended" -> "application_suspended";
+            default -> "github_error";
+        };
+    }
+
+    private String domainReason(DomainException exception) {
+        return switch (exception.getErrorCode()) {
+            case GITHUB_NOT_CONNECTED -> "not_connected";
+            case GITHUB_UNAVAILABLE -> "github_unavailable";
+            default -> "domain_error";
+        };
+    }
+
+    private Long parseInstallationId(String value) {
+        if (!isPresent(value)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String decryptToken(byte[] encryptedToken) {
+        if (encryptedToken == null) {
+            return null;
+        }
+        try {
+            return cipherHelper.decrypt(encryptedToken);
+        } catch (RuntimeException exception) {
+            log.warn("Não foi possível decifrar o token do GitHub: {}", exception.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isPresent(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void requireConfigured() {
