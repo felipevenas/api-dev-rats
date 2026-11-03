@@ -41,6 +41,9 @@ class GitHubAppTokenProviderTest {
         properties.setClientSecret("secret");
         properties.setWebhookSecret("webhook");
         properties.setPrivateKey(privateKey);
+        properties.setAppSlug("devrats-test");
+        properties.setCallbackUrl("http://localhost:8080/api/v1/integrations/github/callback");
+        properties.setSetupUrl("http://localhost:8080/api/v1/integrations/github/setup");
 
         GitHubApiClient apiClient = mock(GitHubApiClient.class);
         when(apiClient.createInstallationToken(anyString(), eq(77L)))

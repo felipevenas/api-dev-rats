@@ -11,6 +11,7 @@ import com.devrats.enums.AuditAction;
 import com.devrats.enums.ChallengeStatus;
 import com.devrats.enums.CommitObservationSource;
 import com.devrats.enums.EligibilityStatus;
+import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.NotificationType;
 import com.devrats.enums.ParticipantStatus;
 import com.devrats.enums.VerificationMode;
@@ -144,7 +145,7 @@ public class ActivityProcessingService {
         if (candidate.githubAuthorId() == null) {
             return;
         }
-        GitHubAccountEntity account = accountRepository.findByGithubUserId(candidate.githubAuthorId()).orElse(null);
+        GitHubAccountEntity account = findConnectedAccount(candidate.githubAuthorId());
         if (account == null) {
             return;
         }
@@ -182,7 +183,7 @@ public class ActivityProcessingService {
             return;
         }
         persistVerification(repository, candidate, null);
-        GitHubAccountEntity account = accountRepository.findByGithubUserId(authorId).orElse(null);
+        GitHubAccountEntity account = findConnectedAccount(authorId);
         if (account == null) {
             return;
         }
@@ -249,7 +250,15 @@ public class ActivityProcessingService {
 
     private Long resolveParticipantGithubId(ChallengeParticipantEntity participant) {
         return accountRepository.findByUserId(participant.getUser().getId())
+                .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
                 .map(GitHubAccountEntity::getGithubUserId)
+                .orElse(null);
+    }
+
+    //---- Desconectar precisa interromper a contagem mesmo quando o repositório é compartilhado.
+    private GitHubAccountEntity findConnectedAccount(Long githubUserId) {
+        return accountRepository.findByGithubUserId(githubUserId)
+                .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
                 .orElse(null);
     }
 

@@ -16,11 +16,24 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Campos de perfil: bio, localização, site, nível de experiência e stack principal.
 - Endpoint de commits elegíveis que validaram cada dia do desafio.
 - Upload e remoção de foto de perfil com storage S3-compatível e fallback para o GitHub.
+- Paginação completa nas listagens de instalações e repositórios da GitHub App.
+
+### 🔧 Corrigido
+
+- Callback e setup do GitHub sempre redirecionam para o frontend com `github=connected|installed|error`, sem expor JSON de erro.
+- Desconectar o GitHub revoga a autorização na GitHub App, além de limpar os tokens locais.
+- Instalações de organização podem ser compartilhadas entre contas DevRats sem reatribuição indevida.
+- Webhooks de instalação removida e de repositórios adicionados/removidos mantêm o acesso local atualizado.
+- Repositórios revogados deixam de contar em `repositoryCount` e contas desconectadas param de validar commits.
+- Sincronização de repositórios marca como revogados apenas os vínculos da instalação afetada.
+- Chamadas HTTP ao GitHub ficam fora das transações de banco no fluxo de integração.
 
 ### 📝 Documentação
 
 - README padronizado com badges, arquitetura, configuração, API, governança e licença.
 - Descrição e topics do repositório alinhados ao ecossistema DevRats.
+- Setup da GitHub App documenta as URLs de redirecionamento e os códigos de erro do callback.
+- Migration `V4` modela o compartilhamento de instalações entre contas.
 
 ## [0.1.0] - 2026-10-28
 

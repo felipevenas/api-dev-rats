@@ -9,6 +9,7 @@ import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GitHubRepositoryEntity;
 import com.devrats.entities.ReconciliationRunEntity;
 import com.devrats.enums.ChallengeStatus;
+import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.ParticipantStatus;
 import com.devrats.enums.ReconciliationStatus;
 import com.devrats.repositories.ChallengeParticipantRepository;
@@ -118,6 +119,7 @@ public class ReconciliationRunner {
                 .findAllByChallengeIdAndStatus(challenge.getId(), ParticipantStatus.ACTIVE);
         for (ChallengeParticipantEntity participant : participants) {
             accountRepository.findByUserId(participant.getUser().getId())
+                    .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
                     .map(GitHubAccountEntity::getGithubUserId)
                     .ifPresent(githubUserId -> repositoryRepository.findAllByOwnerGithubUserId(githubUserId)
                             .forEach(repository -> repositories.put(repository.getId(), repository)));

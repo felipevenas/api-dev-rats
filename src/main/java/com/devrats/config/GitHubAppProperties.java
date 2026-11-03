@@ -25,6 +25,9 @@ public class GitHubAppProperties {
                 && clientId != null && !clientId.isBlank()
                 && clientSecret != null && !clientSecret.isBlank()
                 && privateKey != null && !privateKey.isBlank()
-                && webhookSecret != null && !webhookSecret.isBlank();
+                && webhookSecret != null && !webhookSecret.isBlank()
+                && appSlug != null && !appSlug.isBlank()
+                && callbackUrl != null && !callbackUrl.isBlank()
+                && setupUrl != null && !setupUrl.isBlank();
     }
 }

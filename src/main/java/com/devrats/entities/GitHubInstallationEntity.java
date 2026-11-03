@@ -7,6 +7,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,7 +18,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "github_installations")
+@Table(name = "github_installations", uniqueConstraints = @UniqueConstraint(
+        name = "uq_github_installations_account_installation",
+        columnNames = {"github_account_id", "installation_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,7 +35,7 @@ public class GitHubInstallationEntity {
     @JoinColumn(name = "github_account_id", nullable = false)
     private GitHubAccountEntity githubAccount;
 
-    @Column(name = "installation_id", nullable = false, unique = true)
+    @Column(name = "installation_id", nullable = false)
     private Long installationId;
 
     @Column(name = "account_login", nullable = false, length = 100)

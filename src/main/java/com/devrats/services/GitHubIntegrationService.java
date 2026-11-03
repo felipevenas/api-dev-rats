@@ -16,9 +16,17 @@ public interface GitHubIntegrationService {
 
     GitHubAuthorizeResponse getInstallUrl(UUID userId);
 
-    String handleCallback(String code, String state);
+    /**
+     * Finaliza o OAuth e devolve sempre uma URL de redirecionamento do frontend:
+     * {@code ?github=connected} em caso de sucesso ou {@code ?github=error&reason=...} em caso de falha.
+     */
+    String handleCallback(String code, String state, String error);
 
-    String handleSetup(Long installationId, String setupAction, String state);
+    /**
+     * Finaliza a instalação da App e devolve sempre uma URL de redirecionamento do frontend:
+     * {@code ?github=installed} em caso de sucesso ou {@code ?github=error&reason=...} em caso de falha.
+     */
+    String handleSetup(String installationId, String setupAction, String state, String error);
 
     void disconnect(UUID userId);
 

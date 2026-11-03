@@ -128,7 +128,7 @@ class AvatarIntegrationTest extends IntegrationTestBase {
                 "https://cdn.test.local/avatars/custom.jpg", "avatars/" + userId + "/custom.jpg", userId);
         stubGitHubCallback("state-custom-" + userId, userId);
 
-        githubIntegrationService.handleCallback("code", "state-custom-" + userId);
+        githubIntegrationService.handleCallback("code", "state-custom-" + userId, null);
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT avatar_source FROM users WHERE id = ?", String.class, userId)).isEqualTo("CUSTOM");
@@ -142,7 +142,7 @@ class AvatarIntegrationTest extends IntegrationTestBase {
         UUID userId = registerUser();
         stubGitHubCallback("state-github-" + userId, userId);
 
-        githubIntegrationService.handleCallback("code", "state-github-" + userId);
+        githubIntegrationService.handleCallback("code", "state-github-" + userId, null);
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT avatar_source FROM users WHERE id = ?", String.class, userId)).isEqualTo("GITHUB");
@@ -158,6 +158,7 @@ class AvatarIntegrationTest extends IntegrationTestBase {
         when(githubApiClient.getAuthenticatedUser("user-token"))
                 .thenReturn(new GitHubUser((UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE),
                         "devrats-avatar", "User", "https://avatars.githubusercontent.com/u/99.png"));
+        when(githubApiClient.listUserInstallations("user-token")).thenReturn(java.util.List.of());
     }
 
     private UUID registerUser() throws Exception {

@@ -3,7 +3,7 @@
 A integração do DevRats com o GitHub usa uma **GitHub App** (e não um OAuth App comum), porque só a App gera
 *installation tokens* para ler commits dos repositórios escolhidos pelo usuário.
 
-Sem as 5 credenciais abaixo o backend responde `appConfigured: false`, a tela
+Sem as credenciais, o slug e as URLs de redirecionamento abaixo o backend responde `appConfigured: false`, a tela
 `/app/settings/integrations` mostra "GitHub App não configurada" e o botão **Conectar GitHub** fica desabilitado.
 
 ```
@@ -12,7 +12,12 @@ GITHUB_CLIENT_ID
 GITHUB_CLIENT_SECRET
 GITHUB_PRIVATE_KEY
 GITHUB_WEBHOOK_SECRET
+GITHUB_APP_SLUG
+GITHUB_CALLBACK_URL
+GITHUB_SETUP_URL
 ```
+
+`GITHUB_CALLBACK_URL` e `GITHUB_SETUP_URL` têm defaults de `localhost`; em produção use as URLs públicas.
 
 ---
 
@@ -127,9 +132,9 @@ marque **Active** e mantenha o mesmo secret do `.env`.
 
 | Sintoma | Causa |
 | --- | --- |
-| `appConfigured: false` mesmo com `.env` preenchido | API não reiniciada, ou `.env` fora do diretório de execução |
+| `appConfigured: false` mesmo com `.env` preenchido | API não reiniciada, `.env` fora do diretório de execução, ou falta `GITHUB_APP_SLUG`/URLs de callback e setup |
 | `Invalid GitHub App configuration` / `Hook url is not supported because it isn't reachable over the public Internet` | URL de webhook `localhost`/privada. Crie a App **sem webhook** e adicione depois via túnel |
-| `403 Estado OAuth inválido ou expirado` | state expirou (cache Caffeine) ou a App usa outra callback URL |
+| `?github=error&reason=invalid_state` no frontend | state expirou (cache Caffeine) ou a App usa outra callback URL |
 | `400 redirect_uri_mismatch` no GitHub | **Callback URL** da App diferente de `GITHUB_CALLBACK_URL` |
 | Toast de conectado, mas lista vazia | falta instalar a App (*Gerenciar instalação*) ou nenhum repositório selecionado |
 | Instalação não abre | `GITHUB_APP_SLUG` diferente do slug real da App |

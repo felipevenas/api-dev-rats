@@ -65,13 +65,11 @@ public class GitHubPayloadParser {
         }
         JsonNode repository = root.path("repository");
         if (!repository.isMissingNode()) {
-            ObjectNode repo = objectMapper.createObjectNode();
-            repo.set("id", repository.path("id"));
-            repo.set("full_name", repository.path("full_name"));
-            repo.set("private", repository.path("private"));
-            repo.set("fork", repository.path("fork"));
-            sanitized.set("repository", repo);
+            sanitized.set("repository", repositorySummary(repository));
         }
+        //---- installation_repositories carries the repositories that entered or left the installation.
+        sanitizeRepositoryList(root.path("repositories_added"), sanitized, "repositories_added");
+        sanitizeRepositoryList(root.path("repositories_removed"), sanitized, "repositories_removed");
         JsonNode commits = root.path("commits");
         if (commits.isArray()) {
             ArrayNode minimalCommits = objectMapper.createArrayNode();
@@ -97,6 +95,34 @@ public class GitHubPayloadParser {
     private ObjectNode loginOnly(JsonNode author) {
         ObjectNode minimal = objectMapper.createObjectNode();
         minimal.set("username", author.path("username"));
+        return minimal;
+    }
+
+    private void sanitizeRepositoryList(JsonNode repositories, ObjectNode sanitized, String field) {
+        if (!repositories.isArray()) {
+            return;
+        }
+        ArrayNode minimalRepositories = objectMapper.createArrayNode();
+        repositories.forEach(repository -> minimalRepositories.add(repositorySummary(repository)));
+        sanitized.set(field, minimalRepositories);
+    }
+
+    private ObjectNode repositorySummary(JsonNode repository) {
+        ObjectNode minimal = objectMapper.createObjectNode();
+        minimal.set("id", repository.path("id"));
+        minimal.set("name", repository.path("name"));
+        minimal.set("full_name", repository.path("full_name"));
+        minimal.set("private", repository.path("private"));
+        minimal.set("fork", repository.path("fork"));
+        minimal.set("archived", repository.path("archived"));
+        JsonNode owner = repository.path("owner");
+        if (owner.isObject()) {
+            ObjectNode minimalOwner = objectMapper.createObjectNode();
+            minimalOwner.set("id", owner.path("id"));
+            minimalOwner.set("login", owner.path("login"));
+            minimalOwner.set("type", owner.path("type"));
+            minimal.set("owner", minimalOwner);
+        }
         return minimal;
     }
 
