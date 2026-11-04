@@ -23,6 +23,9 @@ public class AppProperties {
     private final RateLimit rateLimit = new RateLimit();
     private final Retention retention = new Retention();
     private final Storage storage = new Storage();
+    private final Friends friends = new Friends();
+    private final Presence presence = new Presence();
+    private final Social social = new Social();
     private String frontendUrl = "http://localhost:5173";
 
     @Getter
@@ -85,8 +88,39 @@ public class AppProperties {
         private Duration webhookRefill = Duration.ofMinutes(1);
         private int globalCapacity = 300;
         private Duration globalRefill = Duration.ofMinutes(1);
+        //---- Social buckets are per IP; the per-user limits live in Social.
+        private int searchCapacity = 60;
+        private Duration searchRefill = Duration.ofMinutes(1);
+        private int friendRequestCapacity = 20;
+        private Duration friendRequestRefill = Duration.ofHours(1);
+        private int heartbeatCapacity = 60;
+        private Duration heartbeatRefill = Duration.ofMinutes(1);
         //---- Only enable when the app is behind a trusted proxy; otherwise XFF is spoofable.
         private boolean trustForwardedHeaders = false;
+    }
+
+    @Getter
+    @Setter
+    public static class Friends {
+        private int maxPerUser = 1000;
+        private int maxPendingOutgoing = 50;
+        //---- Cooldown do par após DECLINED, com mensagem neutra para não confirmar a recusa.
+        private Duration declinedCooldown = Duration.ofHours(72);
+    }
+
+    @Getter
+    @Setter
+    public static class Presence {
+        private Duration onlineWindow = Duration.ofMinutes(2);
+        private Duration awayWindow = Duration.ofMinutes(10);
+    }
+
+    @Getter
+    @Setter
+    public static class Social {
+        private int searchPerMinute = 20;
+        private int profilePerMinute = 60;
+        private int friendRequestPerHour = 10;
     }
 
     @Getter
@@ -94,6 +128,8 @@ public class AppProperties {
     public static class Retention {
         private int auditDays = 730;
         private int notificationDays = 180;
+        private int presenceDays = 30;
+        private int socialTimelineDays = 180;
     }
 
     @Getter

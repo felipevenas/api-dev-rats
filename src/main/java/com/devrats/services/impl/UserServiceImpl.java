@@ -3,9 +3,11 @@ package com.devrats.services.impl;
 import com.devrats.dto.UpdateUserRequest;
 import com.devrats.dto.UserDataExportResponse;
 import com.devrats.dto.UserResponse;
+import com.devrats.entities.FriendshipEntity;
 import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GroupMemberEntity;
 import com.devrats.entities.UserEntity;
+import com.devrats.entities.UserPresenceEntity;
 import com.devrats.enums.AvatarSource;
 import com.devrats.enums.GitHubConnectionStatus;
 import com.devrats.enums.MemberStatus;
@@ -16,9 +18,12 @@ import com.devrats.exceptions.ErrorCode;
 import com.devrats.exceptions.NotFoundException;
 import com.devrats.exceptions.UnauthorizedException;
 import com.devrats.repositories.ChallengeParticipantRepository;
+import com.devrats.repositories.FriendshipRepository;
 import com.devrats.repositories.GitHubAccountRepository;
 import com.devrats.repositories.GroupMemberRepository;
+import com.devrats.repositories.NotificationRepository;
 import com.devrats.repositories.RefreshTokenRepository;
+import com.devrats.repositories.UserPresenceRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.RefreshTokenService;
 import com.devrats.services.UserService;
@@ -45,6 +50,9 @@ public class UserServiceImpl implements UserService {
     private final GitHubAccountRepository githubAccountRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ChallengeParticipantRepository participantRepository;
+    private final FriendshipRepository friendshipRepository;
+    private final UserPresenceRepository presenceRepository;
+    private final NotificationRepository notificationRepository;
     private final RefreshTokenService refreshTokenService;
     private final AvatarStorage avatarStorage;
     private final PasswordEncoder passwordEncoder;
@@ -54,6 +62,9 @@ public class UserServiceImpl implements UserService {
                            GitHubAccountRepository githubAccountRepository,
                            GroupMemberRepository groupMemberRepository,
                            ChallengeParticipantRepository participantRepository,
+                           FriendshipRepository friendshipRepository,
+                           UserPresenceRepository presenceRepository,
+                           NotificationRepository notificationRepository,
                            RefreshTokenService refreshTokenService,
                            AvatarStorage avatarStorage,
                            PasswordEncoder passwordEncoder,
@@ -62,6 +73,9 @@ public class UserServiceImpl implements UserService {
         this.githubAccountRepository = githubAccountRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.participantRepository = participantRepository;
+        this.friendshipRepository = friendshipRepository;
+        this.presenceRepository = presenceRepository;
+        this.notificationRepository = notificationRepository;
         this.refreshTokenService = refreshTokenService;
         this.avatarStorage = avatarStorage;
         this.passwordEncoder = passwordEncoder;
@@ -127,10 +141,18 @@ public class UserServiceImpl implements UserService {
         List<UserDataExportResponse.GroupMembership> groups = groupMemberRepository.findAllByUserId(userId).stream()
                 .map(this::toMembership)
                 .toList();
+        List<UserDataExportResponse.Friendship> friendships = friendshipRepository
+                .findAllByRequesterIdOrAddresseeId(userId, userId).stream()
+                .map(friendship -> toExportedFriendship(friendship, userId))
+                .toList();
+        Instant lastSeenAt = presenceRepository.findById(userId)
+                .map(UserPresenceEntity::getLastSeenAt)
+                .orElse(null);
         return new UserDataExportResponse(user.getId(), user.getDisplayName(), user.getUsername(), user.getEmail(),
                 user.getAvatarUrl(), user.getAvatarSource() == null ? "NONE" : user.getAvatarSource().name(),
                 user.getBio(), user.getLocation(), user.getWebsiteUrl(), user.getExperienceLevel(),
-                TechStack.fromCsv(user.getPrimaryStack()), user.getTimezone(), user.getCreatedAt(), groups);
+                TechStack.fromCsv(user.getPrimaryStack()), user.getTimezone(), user.getCreatedAt(), groups,
+                friendships, lastSeenAt);
     }
 
     @Override
@@ -171,6 +193,12 @@ public class UserServiceImpl implements UserService {
             participant.setLeftAt(now);
             participantRepository.save(participant);
         });
+        //---- O delete é soft: o ON DELETE CASCADE do banco não dispara, então o grafo social
+        //---- e a presença precisam ser removidos explicitamente.
+        friendshipRepository.deleteAllForUser(userId);
+        presenceRepository.deleteById(userId);
+        notificationRepository.deleteAllForUser(userId);
+        notificationRepository.deleteSocialByActor(userId.toString());
     }
 
     private UserEntity getUser(UUID userId) {
@@ -182,6 +210,15 @@ public class UserServiceImpl implements UserService {
     private UserDataExportResponse.GroupMembership toMembership(GroupMemberEntity member) {
         return new UserDataExportResponse.GroupMembership(member.getGroup().getId(), member.getGroup().getName(),
                 member.getRole().name(), member.getStatus().name(), member.getJoinedAt());
+    }
+
+    /**
+     * Exporta o vínculo social sem identificar a contraparte: só direção, estado e datas.
+     */
+    private UserDataExportResponse.Friendship toExportedFriendship(FriendshipEntity friendship, UUID userId) {
+        String direction = friendship.getRequester().getId().equals(userId) ? "OUTGOING" : "INCOMING";
+        return new UserDataExportResponse.Friendship(friendship.getId(), direction, friendship.getStatus().name(),
+                friendship.getCreatedAt(), friendship.getRespondedAt());
     }
 
     private void deleteAvatarObjectQuietly(String objectKey) {

@@ -26,7 +26,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final AppProperties properties;
     private final SecurityErrorWriter errorWriter;
     private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
-            .expireAfterAccess(10, TimeUnit.MINUTES)
+            //---- Must outlive the longest refill window (friend requests: 1 hour); otherwise
+            //---- an idle bucket is recreated with full capacity and bypasses the limit.
+            .expireAfterAccess(2, TimeUnit.HOURS)
             .maximumSize(10_000)
             .build();
 
@@ -38,7 +40,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = request.getRequestURI();
+        String path = RequestPathNormalizer.normalize(request.getRequestURI());
         String ip = clientIp(request);
         if (path.startsWith("/api/v1/")) {
             Bucket global = buckets.get("global:" + ip, key -> bucket(
@@ -48,7 +50,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             }
         }
 
-        Bucket specific = resolveSpecificBucket(path, ip);
+        Bucket specific = resolveSpecificBucket(path, request.getMethod(), ip);
         if (specific != null && !consume(specific, response)) {
             return;
         }
@@ -66,7 +68,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return false;
     }
 
-    private Bucket resolveSpecificBucket(String path, String ip) {
+    /**
+     * Buckets por IP com paths exatos.
+     *
+     * <p>Não usar {@code startsWith("/api/v1/friends")} para o envio: accept/decline/cancel
+     * são POST/DELETE em subrotas e não devem consumir o bucket de criação.</p>
+     */
+    private Bucket resolveSpecificBucket(String path, String method, String ip) {
         if (path.equals("/api/v1/me/avatar")) {
             return buckets.get("avatar:" + ip, key -> bucket(10, Duration.ofMinutes(1)));
         }
@@ -77,6 +85,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path.equals("/api/v1/webhooks/github")) {
             return buckets.get("webhook:" + ip, key -> bucket(properties.getRateLimit().getWebhookCapacity(),
                     properties.getRateLimit().getWebhookRefill()));
+        }
+        if ("GET".equals(method) && path.equals("/api/v1/users/search")) {
+            return buckets.get("search:" + ip, key -> bucket(properties.getRateLimit().getSearchCapacity(),
+                    properties.getRateLimit().getSearchRefill()));
+        }
+        if ("POST".equals(method) && path.equals("/api/v1/friends/requests")) {
+            return buckets.get("friend-request:" + ip, key -> bucket(
+                    properties.getRateLimit().getFriendRequestCapacity(),
+                    properties.getRateLimit().getFriendRequestRefill()));
+        }
+        if ("POST".equals(method) && path.equals("/api/v1/presence/heartbeat")) {
+            return buckets.get("heartbeat:" + ip, key -> bucket(properties.getRateLimit().getHeartbeatCapacity(),
+                    properties.getRateLimit().getHeartbeatRefill()));
         }
         return null;
     }
