@@ -16,6 +16,7 @@ import com.devrats.enums.ChallengeStatus;
 import com.devrats.enums.GroupRole;
 import com.devrats.enums.GroupStatus;
 import com.devrats.enums.MemberStatus;
+import com.devrats.enums.NotificationType;
 import com.devrats.enums.ParticipantStatus;
 import com.devrats.exceptions.ForbiddenException;
 import com.devrats.exceptions.NotFoundException;
@@ -30,6 +31,7 @@ import com.devrats.services.AuditService;
 import com.devrats.services.ChallengeService;
 import com.devrats.services.GroupAccessService;
 import com.devrats.services.GroupService;
+import com.devrats.services.NotificationService;
 import com.devrats.utils.ActivityDateHelper;
 import com.devrats.utils.GroupViewHelper;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,7 @@ public class GroupServiceImpl implements GroupService {
     private final ChallengeService challengeService;
     private final GroupAccessService accessService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
     private final AppProperties properties;
     private final Clock clock;
 
@@ -63,6 +66,7 @@ public class GroupServiceImpl implements GroupService {
                             ChallengeService challengeService,
                             GroupAccessService accessService,
                             AuditService auditService,
+                            NotificationService notificationService,
                             AppProperties properties,
                             Clock clock) {
         this.groupRepository = groupRepository;
@@ -73,6 +77,7 @@ public class GroupServiceImpl implements GroupService {
         this.challengeService = challengeService;
         this.accessService = accessService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
         this.properties = properties;
         this.clock = clock;
     }
@@ -150,6 +155,8 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public void removeMember(UUID groupId, UUID actorId, UUID memberUserId) {
+        groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         accessService.requireOwner(groupId, actorId);
         GroupMemberEntity target = memberRepository.findByGroupIdAndUserId(groupId, memberUserId)
                 .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
@@ -169,6 +176,8 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public void leaveGroup(UUID groupId, UUID userId) {
+        groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         GroupMemberEntity member = accessService.requireMember(groupId, userId);
         if (member.getRole() == GroupRole.OWNER) {
             throw new ForbiddenException("O criador não pode sair do grupo; cancele o desafio ou arquive o grupo");
@@ -179,6 +188,25 @@ public class GroupServiceImpl implements GroupService {
         memberRepository.save(member);
         removeParticipant(groupId, userId, now, ParticipantStatus.LEFT);
         auditService.record(userId, "GROUP", groupId, AuditAction.MEMBER_LEFT, null);
+    }
+
+    @Override
+    @Transactional
+    public void deleteGroup(UUID groupId, UUID userId) {
+        accessService.requireOwner(groupId, userId);
+        //---- Serialize with invite acceptance (which locks the group) before selecting recipients,
+        //---- so a member cannot join after the notification snapshot and before the cascade.
+        GroupEntity group = groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
+        String groupName = group.getName();
+        //---- Notify every active member before the cascade removes the group and its membership rows.
+        memberRepository.findAllByGroupIdAndStatusOrderByJoinedAtAsc(groupId, MemberStatus.ACTIVE).stream()
+                .map(member -> member.getUser().getId())
+                .filter(memberId -> !memberId.equals(userId))
+                .forEach(memberId -> notificationService.notify(memberId, NotificationType.GROUP_DELETED, null,
+                        "group-deleted:" + groupId, Map.of("groupName", groupName)));
+        groupRepository.delete(group);
+        auditService.record(userId, "GROUP", groupId, AuditAction.GROUP_DELETED, Map.of("name", groupName));
     }
 
     private String resolveTimezone(String timezone) {
