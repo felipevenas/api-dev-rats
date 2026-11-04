@@ -33,6 +33,7 @@ import com.devrats.services.GroupService;
 import com.devrats.services.InviteService;
 import com.devrats.services.NotificationService;
 import com.devrats.utils.TokenHelper;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +61,7 @@ public class InviteServiceImpl implements InviteService {
     private final NotificationService notificationService;
     private final AppProperties properties;
     private final Clock clock;
+    private final EntityManager entityManager;
 
     public InviteServiceImpl(GroupInviteRepository inviteRepository,
                              GroupMemberRepository memberRepository,
@@ -72,7 +74,8 @@ public class InviteServiceImpl implements InviteService {
                              AuditService auditService,
                              NotificationService notificationService,
                              AppProperties properties,
-                             Clock clock) {
+                             Clock clock,
+                             EntityManager entityManager) {
         this.inviteRepository = inviteRepository;
         this.memberRepository = memberRepository;
         this.groupRepository = groupRepository;
@@ -85,6 +88,7 @@ public class InviteServiceImpl implements InviteService {
         this.notificationService = notificationService;
         this.properties = properties;
         this.clock = clock;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -151,6 +155,9 @@ public class InviteServiceImpl implements InviteService {
                 .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         invite = inviteRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.INVITE_NOT_FOUND));
+        //---- The first read may have populated the persistence context; refresh after the lock
+        //---- so validation and uses accounting see the latest committed values.
+        entityManager.refresh(invite);
         String reason = invalidReason(invite);
         if (reason != null) {
             throw invalidReasonException(reason);
