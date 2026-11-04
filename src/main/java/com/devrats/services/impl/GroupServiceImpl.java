@@ -189,7 +189,11 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public void deleteGroup(UUID groupId, UUID userId) {
-        GroupEntity group = accessService.requireOwner(groupId, userId).getGroup();
+        accessService.requireOwner(groupId, userId);
+        //---- Serialize with invite acceptance (which locks the group) before selecting recipients,
+        //---- so a member cannot join after the notification snapshot and before the cascade.
+        GroupEntity group = groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         String groupName = group.getName();
         //---- Notify every active member before the cascade removes the group and its membership rows.
         memberRepository.findAllByGroupIdAndStatusOrderByJoinedAtAsc(groupId, MemberStatus.ACTIVE).stream()

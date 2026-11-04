@@ -24,6 +24,7 @@ import com.devrats.services.GroupAccessService;
 import com.devrats.services.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -38,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -125,11 +127,16 @@ class GroupServiceImplTimezoneTest {
         member.setStatus(MemberStatus.ACTIVE);
 
         when(accessService.requireOwner(groupId, ownerId)).thenReturn(owner);
+        when(groupRepository.findByIdForUpdate(groupId)).thenReturn(Optional.of(group));
         when(memberRepository.findAllByGroupIdAndStatusOrderByJoinedAtAsc(groupId, MemberStatus.ACTIVE))
                 .thenReturn(List.of(owner, member));
 
         service.deleteGroup(groupId, ownerId);
 
+        InOrder lockOrder = inOrder(groupRepository, memberRepository);
+        lockOrder.verify(groupRepository).findByIdForUpdate(groupId);
+        lockOrder.verify(memberRepository)
+                .findAllByGroupIdAndStatusOrderByJoinedAtAsc(groupId, MemberStatus.ACTIVE);
         verify(notificationService).notify(eq(memberId), eq(NotificationType.GROUP_DELETED), isNull(),
                 eq("group-deleted:" + groupId), eq(Map.of("groupName", "Grupo de teste")));
         verify(notificationService, never()).notify(eq(ownerId), any(), any(), any(), any());
