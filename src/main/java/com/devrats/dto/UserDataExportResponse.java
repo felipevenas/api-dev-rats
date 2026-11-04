@@ -21,7 +21,9 @@ public record UserDataExportResponse(
         List<TechStack> primaryStack,
         String timezone,
         Instant createdAt,
-        List<GroupMembership> groups
+        List<GroupMembership> groups,
+        List<Friendship> friendships,
+        Instant lastSeenAt
 ) {
 
     public record GroupMembership(
@@ -30,6 +32,19 @@ public record UserDataExportResponse(
             String role,
             String membershipStatus,
             Instant joinedAt
+    ) {
+    }
+
+    /**
+     * Vínculo social do titular sem PII de terceiros: apenas o id do registro,
+     * a direção, o estado e as datas.
+     */
+    public record Friendship(
+            UUID friendshipId,
+            String direction,
+            String status,
+            Instant createdAt,
+            Instant respondedAt
     ) {
     }
 }

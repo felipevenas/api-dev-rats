@@ -89,6 +89,8 @@ public class NotificationServiceImpl implements NotificationService {
             case CHALLENGE_COMPLETED, CHALLENGE_CANCELLED, CHALLENGE_EXPIRED, MEMBER_JOINED, INVITE_ACCEPTED ->
                     user.isNotifyChallengeUpdates();
             case INTEGRATION_ATTENTION -> user.isNotifyIntegration();
+            //---- Notificações sociais são sempre entregues no MVP (sem toggle dedicado).
+            case FRIEND_REQUEST, FRIEND_REQUEST_ACCEPTED -> true;
         };
     }
 

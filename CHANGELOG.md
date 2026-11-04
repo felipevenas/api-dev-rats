@@ -17,6 +17,11 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Endpoint de commits elegíveis que validaram cada dia do desafio.
 - Upload e remoção de foto de perfil com storage S3-compatível e fallback para o GitHub.
 - Paginação completa nas listagens de instalações e repositórios da GitHub App.
+- **Sistema de amizades**: busca por username, perfil público, solicitações com aceite, recusa e cancelamento, auto-aceite de solicitações cruzadas e remoção de amizade.
+- **Presença**: heartbeat autenticado com estados `ONLINE`/`AWAY`/`OFFLINE`, visível apenas para amigos.
+- **Notificações sociais**: `FRIEND_REQUEST` e `FRIEND_REQUEST_ACCEPTED` com ações inline na central de alertas.
+- **Privacidade**: exclusão de conta remove o grafo social e a presença; exportação LGPD inclui as amizades mínimas e o último heartbeat do titular.
+- **Rate limit social**: limites por IP e por usuário na busca e no envio de solicitações, com `Retry-After` em toda resposta 429.
 
 ### 🔧 Corrigido
 

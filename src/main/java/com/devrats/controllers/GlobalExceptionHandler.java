@@ -9,9 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -96,11 +98,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(RateLimitException.class)
-    public ProblemDetail handleRateLimit(RateLimitException exception) {
+    public ResponseEntity<ProblemDetail> handleRateLimit(RateLimitException exception) {
+        long retryAfterSeconds = Math.max(1, exception.getRetryAfter().toSeconds());
         ProblemDetail problem = build(HttpStatus.TOO_MANY_REQUESTS, ErrorCode.RATE_LIMITED.name(),
                 ErrorCode.RATE_LIMITED.getTitle(), "Tente novamente em alguns instantes");
-        problem.setProperty("retryAfterSeconds", exception.getRetryAfter().toSeconds());
-        return problem;
+        problem.setProperty("retryAfterSeconds", retryAfterSeconds);
+        //---- O header é o contrato público do 429; o corpo repete o valor para clientes de JSON.
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds))
+                .body(problem);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -123,7 +129,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleIntegrity(DataIntegrityViolationException exception) {
-        log.warn("Violação de integridade: {}", exception.getMostSpecificCause().getMessage());
+        //---- Nunca logar a mensagem do driver: constraints podem conter e-mail/username.
+        log.warn("Violação de integridade de dados");
         return build(HttpStatus.CONFLICT, ErrorCode.DATA_CONFLICT.name(),
                 ErrorCode.DATA_CONFLICT.getTitle(), "A operação conflita com o estado atual do recurso");
     }

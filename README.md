@@ -156,6 +156,10 @@ Copie `.env.example` para `.env` e preencha os segredos. As principais variávei
 | `GITHUB_SETUP_URL` | Setup URL registrada na GitHub App |
 | `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas, separadas por vírgula |
 | `APP_FRONTEND_URL` | URL usada nos redirects OAuth |
+| `APP_FRIENDS_MAX_PER_USER`, `APP_FRIENDS_MAX_PENDING_OUTGOING` | Limite de amigos e de solicitações pendentes por usuário |
+| `APP_FRIENDS_DECLINED_COOLDOWN` | Janela de bloqueio do par após uma recusa (padrão `PT72H`) |
+| `APP_PRESENCE_ONLINE_WINDOW`, `APP_PRESENCE_AWAY_WINDOW` | Janelas de presença (padrão `PT2M` e `PT10M`) |
+| `APP_SOCIAL_SEARCH_PER_MINUTE`, `APP_SOCIAL_FRIEND_REQUEST_PER_HOUR` | Limite por usuário na busca e no envio de solicitações |
 
 Segredos nunca são versionados. O profile `local` precisa ser ativado explicitamente e `.env.example` contém apenas valores de exemplo.
 
@@ -237,6 +241,22 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /notifications`
 - `PATCH /notifications/{id}/read`
 - `POST /notifications/read-all`
+
+### Amigos e presença
+
+- `GET /users/search?q=&limit=10`
+- `GET /users/{username}`
+- `GET /friends?page=&size=`
+- `GET /friends/requests?direction=received|sent&page=&size=`
+- `GET /friends/status?userIds=a,b,c`
+- `POST /friends/requests`
+- `POST /friends/requests/{id}/accept`
+- `POST /friends/requests/{id}/decline`
+- `DELETE /friends/requests/{id}`
+- `DELETE /friends/{userId}`
+- `POST /presence/heartbeat`
+
+Perfil público, busca, amigos, solicitações e presença respondem com `Cache-Control: no-store`. A presença (`ONLINE`, `AWAY`, `OFFLINE`) só é exposta a amigos ou ao próprio titular — o instante do heartbeat nunca sai da API. Busca e envio de solicitação têm rate limit por IP e por usuário; um 429 sempre traz o header `Retry-After`.
 
 Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `traceId`.
 
