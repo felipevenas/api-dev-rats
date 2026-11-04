@@ -23,4 +23,6 @@ public interface GroupService {
     void removeMember(UUID groupId, UUID actorId, UUID memberUserId);
 
     void leaveGroup(UUID groupId, UUID userId);
+
+    void deleteGroup(UUID groupId, UUID userId);
 }

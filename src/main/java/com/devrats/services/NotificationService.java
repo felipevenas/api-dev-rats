@@ -17,4 +17,6 @@ public interface NotificationService {
     void markRead(UUID userId, UUID notificationId);
 
     void markAllRead(UUID userId);
+
+    void delete(UUID userId, UUID notificationId);
 }

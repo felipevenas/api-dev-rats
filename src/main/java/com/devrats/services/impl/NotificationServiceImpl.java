@@ -82,12 +82,21 @@ public class NotificationServiceImpl implements NotificationService {
         });
     }
 
+    @Override
+    @Transactional
+    public void delete(UUID userId, UUID notificationId) {
+        NotificationEntity notification = notificationRepository.findByIdAndUserId(notificationId, userId)
+                .orElseThrow(() -> new com.devrats.exceptions.NotFoundException(
+                        com.devrats.exceptions.ErrorCode.RESOURCE_NOT_FOUND));
+        notificationRepository.delete(notification);
+    }
+
     private boolean wants(UserEntity user, NotificationType type) {
         return switch (type) {
             case DAILY_GOAL -> user.isNotifyDailyGoal();
             case MILESTONE -> user.isNotifyMilestones();
-            case CHALLENGE_COMPLETED, CHALLENGE_CANCELLED, CHALLENGE_EXPIRED, MEMBER_JOINED, INVITE_ACCEPTED ->
-                    user.isNotifyChallengeUpdates();
+            case CHALLENGE_COMPLETED, CHALLENGE_CANCELLED, CHALLENGE_EXPIRED, MEMBER_JOINED, INVITE_ACCEPTED,
+                 GROUP_DELETED -> user.isNotifyChallengeUpdates();
             case INTEGRATION_ATTENTION -> user.isNotifyIntegration();
         };
     }
