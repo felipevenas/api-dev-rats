@@ -83,4 +83,11 @@ public class GroupController {
         groupService.leaveGroup(groupId, userId);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{groupId}")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID groupId) {
+        UUID userId = AuthenticatedUserHelper.getUserId(jwt);
+        groupService.deleteGroup(groupId, userId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -4,6 +4,7 @@ public enum AuditAction {
     GROUP_CREATED,
     GROUP_UPDATED,
     GROUP_ARCHIVED,
+    GROUP_DELETED,
     MEMBER_JOINED,
     MEMBER_LEFT,
     MEMBER_REMOVED,

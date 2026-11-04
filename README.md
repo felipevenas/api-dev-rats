@@ -209,6 +209,7 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /groups`
 - `GET /groups/{groupId}`
 - `PATCH /groups/{groupId}`
+- `DELETE /groups/{groupId}`
 - `GET /groups/{groupId}/members`
 - `DELETE /groups/{groupId}/members/{userId}`
 - `POST /groups/{groupId}/leave`
@@ -237,6 +238,7 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /notifications`
 - `PATCH /notifications/{id}/read`
 - `POST /notifications/read-all`
+- `DELETE /notifications/{id}`
 
 Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `traceId`.
 
