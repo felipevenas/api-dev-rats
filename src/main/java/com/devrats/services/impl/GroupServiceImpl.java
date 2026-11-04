@@ -155,6 +155,8 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public void removeMember(UUID groupId, UUID actorId, UUID memberUserId) {
+        groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         accessService.requireOwner(groupId, actorId);
         GroupMemberEntity target = memberRepository.findByGroupIdAndUserId(groupId, memberUserId)
                 .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
@@ -174,6 +176,8 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public void leaveGroup(UUID groupId, UUID userId) {
+        groupRepository.findByIdForUpdate(groupId)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         GroupMemberEntity member = accessService.requireMember(groupId, userId);
         if (member.getRole() == GroupRole.OWNER) {
             throw new ForbiddenException("O criador não pode sair do grupo; cancele o desafio ou arquive o grupo");
