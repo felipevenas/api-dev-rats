@@ -26,7 +26,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final AppProperties properties;
     private final SecurityErrorWriter errorWriter;
     private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
-            .expireAfterAccess(10, TimeUnit.MINUTES)
+            //---- Must outlive the longest refill window (friend requests: 1 hour); otherwise
+            //---- an idle bucket is recreated with full capacity and bypasses the limit.
+            .expireAfterAccess(2, TimeUnit.HOURS)
             .maximumSize(10_000)
             .build();
 
@@ -38,7 +40,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = normalizePath(request.getRequestURI());
+        String path = RequestPathNormalizer.normalize(request.getRequestURI());
         String ip = clientIp(request);
         if (path.startsWith("/api/v1/")) {
             Bucket global = buckets.get("global:" + ip, key -> bucket(
@@ -104,11 +106,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Bucket.builder()
                 .addLimit(Bandwidth.builder().capacity(capacity).refillGreedy(capacity, refill).build())
                 .build();
-    }
-
-    //---- Spring MVC ignora parâmetros de matriz; normalizar evita bypass dos buckets.
-    private String normalizePath(String path) {
-        return path.replaceAll(";[^/]*", "");
     }
 
     private String clientIp(HttpServletRequest request) {

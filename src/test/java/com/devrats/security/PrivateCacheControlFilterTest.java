@@ -24,6 +24,7 @@ class PrivateCacheControlFilterTest {
         assertThat(cacheControl("/api/v1/dashboard")).isNull();
         assertThat(cacheControl("/api/v1/usersX")).isNull();
         assertThat(cacheControl("/api/v1/users;v=2")).isEqualTo("no-store");
+        assertThat(cacheControl("/api/v1/users%2Fana")).isEqualTo("no-store");
     }
 
     private String cacheControl(String path) throws Exception {

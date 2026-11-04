@@ -185,6 +185,9 @@ public class FriendServiceImpl implements FriendService {
         try {
             return Objects.requireNonNull(transactionTemplate.execute(status -> doSendRequest(actor, target)));
         } catch (DataIntegrityViolationException exception) {
+            if (!isPairUniquenessViolation(exception)) {
+                throw exception;
+            }
             //---- Sem valores no log: apenas o fato do conflito.
             log.debug("[friends] conflito de unicidade ao criar solicitação; reconciliando o par");
             return Objects.requireNonNull(transactionTemplate.execute(status -> reconcileConcurrentSend(actor, target)));
@@ -298,6 +301,7 @@ public class FriendServiceImpl implements FriendService {
     }
 
     private FriendRequestResponse reopen(FriendshipEntity friendship, UserEntity actor, UserEntity target, Instant now) {
+        ensurePendingCapacity(actor.getId());
         friendship.setRequester(actor);
         friendship.setAddressee(target);
         friendship.setStatus(FriendshipStatus.PENDING);
@@ -400,6 +404,24 @@ public class FriendServiceImpl implements FriendService {
         return userRepository.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * Só a violação do índice único do par pode ser reconciliada como corrida de envio.
+     * FK/notificação e outros erros de integridade devem seguir o fluxo normal.
+     */
+    private boolean isPairUniquenessViolation(DataIntegrityViolationException exception) {
+        Throwable cause = exception.getCause();
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintViolation) {
+                String constraint = constraintViolation.getConstraintName();
+                if (constraint != null && constraint.contains("uq_friendships_pair")) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return exception.getMessage() != null && exception.getMessage().contains("uq_friendships_pair");
     }
 
     private String normalizeUsername(String username) {

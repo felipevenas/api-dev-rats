@@ -298,7 +298,7 @@ class FriendServiceImplTest {
         when(friendshipRepository.findPairForUpdate(ACTOR_ID, TARGET_ID)).thenReturn(Optional.empty());
         when(friendshipRepository.countByRequesterIdAndStatus(ACTOR_ID, FriendshipStatus.PENDING)).thenReturn(0L);
         when(friendshipRepository.saveAndFlush(any(FriendshipEntity.class)))
-                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate pair"));
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate pair uq_friendships_pair"));
         //---- Reconciliação: relê a linha vencedora e devolve a mesma solicitação.
         when(friendshipRepository.findPair(ACTOR_ID, TARGET_ID)).thenReturn(Optional.of(winner));
 

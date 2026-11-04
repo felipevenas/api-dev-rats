@@ -15,8 +15,10 @@ public interface UserPresenceRepository extends JpaRepository<UserPresenceEntity
 
     List<UserPresenceEntity> findAllByUserIdIn(Collection<UUID> userIds);
 
-    /** Remove heartbeats antigos (retenção LGPD). */
-    long deleteByLastSeenAtBefore(Instant cutoff);
+    /** Remove heartbeats antigos (retenção LGPD) em uma única operação de bulk. */
+    @Modifying(flushAutomatically = true)
+    @Query("delete from UserPresenceEntity p where p.lastSeenAt < :cutoff")
+    int deleteByLastSeenAtBefore(@Param("cutoff") Instant cutoff);
 
     /**
      * Upsert atômico: um heartbeat concorrente não gera violação de PK

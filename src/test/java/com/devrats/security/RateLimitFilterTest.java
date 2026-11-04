@@ -53,6 +53,16 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void shouldApplySearchBucketToPercentEncodedPath() throws Exception {
+        properties.getRateLimit().setGlobalCapacity(100);
+        properties.getRateLimit().setSearchCapacity(1);
+        properties.getRateLimit().setSearchRefill(Duration.ofMinutes(1));
+
+        assertThat(run("GET", "/api/v1/users/search").getStatus()).isEqualTo(200);
+        assertThat(run("GET", "/api/v1/users%2Fsearch").getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void shouldExposeRetryAfterOn429() throws Exception {
         properties.getRateLimit().setGlobalCapacity(1);
         properties.getRateLimit().setGlobalRefill(Duration.ofMinutes(1));

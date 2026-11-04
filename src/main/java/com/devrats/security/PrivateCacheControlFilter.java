@@ -34,7 +34,7 @@ public class PrivateCacheControlFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (isPrivatePath(normalizePath(request.getRequestURI()))) {
+        if (isPrivatePath(RequestPathNormalizer.normalize(request.getRequestURI()))) {
             response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         }
         chain.doFilter(request, response);
@@ -43,10 +43,5 @@ public class PrivateCacheControlFilter extends OncePerRequestFilter {
     private boolean isPrivatePath(String path) {
         return PRIVATE_PREFIXES.stream()
                 .anyMatch(prefix -> path.equals(prefix) || path.startsWith(prefix + "/"));
-    }
-
-    //---- Spring MVC ignora parâmetros de matriz; removê-los evita bypass do filtro.
-    private String normalizePath(String path) {
-        return path.replaceAll(";[^/]*", "");
     }
 }
