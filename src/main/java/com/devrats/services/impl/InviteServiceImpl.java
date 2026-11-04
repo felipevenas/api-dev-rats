@@ -142,14 +142,19 @@ public class InviteServiceImpl implements InviteService {
     @Override
     @Transactional
     public GroupResponse accept(String token, UUID userId) {
-        GroupInviteEntity invite = inviteRepository.findByTokenHashForUpdate(TokenHelper.hashToken(token))
+        String tokenHash = TokenHelper.hashToken(token);
+        //---- Lock order shared with deleteGroup: first read the invite without a lock to discover
+        //---- the group, then lock the group, and only then lock/revalidate the invite row.
+        GroupInviteEntity invite = inviteRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new NotFoundException(ErrorCode.INVITE_NOT_FOUND));
+        GroupEntity group = groupRepository.findByIdForUpdate(invite.getGroup().getId())
+                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
+        invite = inviteRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.INVITE_NOT_FOUND));
         String reason = invalidReason(invite);
         if (reason != null) {
             throw invalidReasonException(reason);
         }
-        GroupEntity group = groupRepository.findByIdForUpdate(invite.getGroup().getId())
-                .orElseThrow(() -> new NotFoundException(ErrorCode.GROUP_NOT_FOUND));
         if (group.getStatus() != GroupStatus.ACTIVE) {
             throw new ConflictException(ErrorCode.INVALID_CHALLENGE_STATE, "Grupo não está ativo");
         }
