@@ -54,7 +54,6 @@ import com.devrats.services.storage.ChatAttachmentStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -156,8 +155,8 @@ public class ChatServiceImpl implements ChatService {
     @Transactional(readOnly = true)
     public Page<ConversationResponse> listConversations(UUID userId, Pageable pageable) {
         Page<ConversationEntity> page = conversationRepository.findVisibleForUser(userId,
-                ConversationType.DIRECT, ConversationType.GROUP, FriendshipStatus.ACCEPTED,
-                MemberStatus.ACTIVE, pageable);
+                ConversationType.DIRECT, ConversationType.GROUP, GroupStatus.ACTIVE,
+                FriendshipStatus.ACCEPTED, MemberStatus.ACTIVE, pageable);
         List<ConversationEntity> conversations = page.getContent();
         if (conversations.isEmpty()) {
             return page.map(conversation -> toConversation(conversation, userId, null, 0, Map.of()));
@@ -235,7 +234,7 @@ public class ChatServiceImpl implements ChatService {
         }
         UserEntity current = requireActiveUser(userId);
         UserEntity other = requireActiveUser(otherUserId);
-        FriendshipEntity friendship = friendshipRepository.findPair(userId, otherUserId)
+        friendshipRepository.findPair(userId, otherUserId)
                 .filter(pair -> pair.getStatus() == FriendshipStatus.ACCEPTED)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.CONVERSATION_NOT_FOUND));
 
@@ -245,22 +244,12 @@ public class ChatServiceImpl implements ChatService {
             return toConversationWithState(existing.get(), userId);
         }
         Instant now = clock.instant();
-        ConversationEntity conversation = new ConversationEntity();
-        conversation.setType(ConversationType.DIRECT);
-        conversation.setUserA(current);
-        conversation.setUserB(other);
-        conversation.setDirectKey(directKey);
-        conversation.setLastMessageAt(now);
-        try {
-            conversationRepository.saveAndFlush(conversation);
-        } catch (DataIntegrityViolationException exception) {
-            log.debug("[chat] conflito ao criar conversa direta; reconciliando o par");
-            ConversationEntity winner = conversationRepository.findByDirectKey(directKey)
-                    .orElseThrow(() -> new ConflictException(ErrorCode.DATA_CONFLICT,
-                            "Não foi possível criar a conversa"));
-            createReadRow(winner, current, now);
-            return toConversationWithState(winner, userId);
-        }
+        //---- ON CONFLICT DO NOTHING evita marcar a transação como rollback-only em corrida.
+        conversationRepository.insertDirectIfAbsent(UUID.randomUUID(), current.getId(), other.getId(),
+                directKey, now);
+        ConversationEntity conversation = conversationRepository.findByDirectKey(directKey)
+                .orElseThrow(() -> new ConflictException(ErrorCode.DATA_CONFLICT,
+                        "Não foi possível criar a conversa"));
         createReadRow(conversation, current, now);
         return toConversationWithState(conversation, userId);
     }
@@ -279,20 +268,10 @@ public class ChatServiceImpl implements ChatService {
             return toConversationWithState(existing.get(), userId);
         }
         Instant now = clock.instant();
-        ConversationEntity conversation = new ConversationEntity();
-        conversation.setType(ConversationType.GROUP);
-        conversation.setGroup(group);
-        conversation.setLastMessageAt(now);
-        try {
-            conversationRepository.saveAndFlush(conversation);
-        } catch (DataIntegrityViolationException exception) {
-            log.debug("[chat] conflito ao criar conversa de grupo; reconciliando");
-            ConversationEntity winner = conversationRepository.findByGroupId(groupId)
-                    .orElseThrow(() -> new ConflictException(ErrorCode.DATA_CONFLICT,
-                            "Não foi possível criar a conversa"));
-            createReadRow(winner, member.getUser(), now);
-            return toConversationWithState(winner, userId);
-        }
+        conversationRepository.insertGroupIfAbsent(UUID.randomUUID(), groupId, now);
+        ConversationEntity conversation = conversationRepository.findByGroupId(groupId)
+                .orElseThrow(() -> new ConflictException(ErrorCode.DATA_CONFLICT,
+                        "Não foi possível criar a conversa"));
         createReadRow(conversation, member.getUser(), now);
         return toConversationWithState(conversation, userId);
     }
@@ -303,20 +282,15 @@ public class ChatServiceImpl implements ChatService {
         if (conversationRepository.findByGroupId(groupId).isPresent()) {
             return;
         }
-        GroupEntity group = groupAccessService.getGroup(groupId);
+        groupAccessService.getGroup(groupId);
         Instant now = clock.instant();
-        ConversationEntity conversation = new ConversationEntity();
-        conversation.setType(ConversationType.GROUP);
-        conversation.setGroup(group);
-        conversation.setLastMessageAt(group.getCreatedAt() == null ? now : group.getCreatedAt());
-        try {
-            conversationRepository.saveAndFlush(conversation);
-        } catch (DataIntegrityViolationException exception) {
-            if (conversationRepository.findByGroupId(groupId).isEmpty()) {
-                throw exception;
-            }
+        int inserted = conversationRepository.insertGroupIfAbsent(UUID.randomUUID(), groupId, now);
+        if (inserted == 0) {
             return;
         }
+        ConversationEntity conversation = conversationRepository.findByGroupId(groupId)
+                .orElseThrow(() -> new ConflictException(ErrorCode.DATA_CONFLICT,
+                        "Não foi possível criar a conversa"));
         groupMemberRepository.findAllByGroupIdAndStatusOrderByJoinedAtAsc(groupId, MemberStatus.ACTIVE)
                 .forEach(member -> createReadRow(conversation, member.getUser(), now));
     }
@@ -533,8 +507,14 @@ public class ChatServiceImpl implements ChatService {
             return List.of();
         }
         List<UUID> ids = messages.stream().map(ChatMessageEntity::getId).toList();
-        Map<UUID, List<ChatAttachmentEntity>> attachments = attachmentRepository.findAllByMessageIdIn(ids).stream()
-                .collect(Collectors.groupingBy(attachment -> attachment.getMessage().getId()));
+        Map<UUID, List<ChatAttachmentEntity>> attachments = new HashMap<>();
+        //---- Exportação pode ter milhares de mensagens; limita o IN para não estourar o driver.
+        for (int start = 0; start < ids.size(); start += 200) {
+            List<UUID> batch = ids.subList(start, Math.min(start + 200, ids.size()));
+            attachmentRepository.findAllByMessageIdIn(batch).forEach(attachment ->
+                    attachments.computeIfAbsent(attachment.getMessage().getId(), ignored -> new ArrayList<>())
+                            .add(attachment));
+        }
         return messages.stream()
                 .map(message -> new UserDataExportResponse.ChatMessageExport(
                         message.getConversation().getId(),
@@ -595,14 +575,8 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private void createReadRow(ConversationEntity conversation, UserEntity user, Instant lastReadAt) {
-        if (readRepository.existsByConversationIdAndUserId(conversation.getId(), user.getId())) {
-            return;
-        }
-        ConversationReadEntity read = new ConversationReadEntity();
-        read.setConversation(conversation);
-        read.setUser(user);
-        read.setLastReadAt(lastReadAt);
-        readRepository.save(read);
+        readRepository.insertIfAbsent(UUID.randomUUID(), conversation.getId(), user.getId(),
+                lastReadAt, clock.instant());
     }
 
     private Map<UUID, Long> unreadByConversation(UUID userId, List<UUID> conversationIds) {

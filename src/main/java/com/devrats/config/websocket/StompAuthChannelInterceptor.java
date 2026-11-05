@@ -2,6 +2,8 @@ package com.devrats.config.websocket;
 
 import com.devrats.enums.UserStatus;
 import com.devrats.repositories.UserRepository;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -13,8 +15,10 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Autentica o frame STOMP CONNECT e autoriza os destinos do chat.
@@ -30,6 +34,12 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String CHAT_SUBSCRIPTION = "/user/queue/chat";
     private static final String TYPING_DESTINATION = "/app/chat.typing";
+
+    private static final int MAX_FRAMES_PER_WINDOW = 100;
+    private final Cache<UUID, AtomicInteger> frameWindows = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(10))
+            .maximumSize(10_000)
+            .build();
 
     private final JwtDecoder jwtDecoder;
     private final WebSocketSessionRegistry sessionRegistry;
@@ -58,6 +68,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.SEND.equals(accessor.getCommand())
                 || StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             ChatPrincipal principal = requirePrincipal(accessor);
+            if (!allowFrame(principal.userId())) {
+                throw new MessageDeliveryException("Muitos frames em pouco tempo");
+            }
             requireActiveAccount(principal.userId());
             if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
                 requireDestination(accessor, CHAT_SUBSCRIPTION);
@@ -95,6 +108,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             return principal;
         }
         throw new MessageDeliveryException("Não autenticado");
+    }
+
+    private boolean allowFrame(UUID userId) {
+        AtomicInteger counter = frameWindows.get(userId, ignored -> new AtomicInteger());
+        return counter != null && counter.incrementAndGet() <= MAX_FRAMES_PER_WINDOW;
     }
 
     private void requireActiveAccount(UUID userId) {

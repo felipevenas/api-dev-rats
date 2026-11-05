@@ -9,12 +9,12 @@ import com.devrats.utils.ChatImageProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 
 /**
  * Valida e normaliza anexos antes de qualquer escrita no S3.
@@ -143,18 +143,24 @@ public class ChatAttachmentPolicy {
      * {@code [Content_Types].xml}; isso evita aceitar qualquer ZIP renomeado.
      */
     private boolean isValidOfficeArchive(byte[] content) {
-        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(content))) {
-            ZipEntry entry;
-            int inspected = 0;
-            while ((entry = zip.getNextEntry()) != null && inspected < 200) {
-                inspected++;
-                if ("[Content_Types].xml".equals(entry.getName())) {
-                    return true;
-                }
+        Path temp = null;
+        try {
+            temp = Files.createTempFile("chat-ooxml-", ".zip");
+            Files.write(temp, content);
+            //---- ZipFile lê o central directory sem inflar as entradas.
+            try (ZipFile zip = new ZipFile(temp.toFile())) {
+                return zip.getEntry("[Content_Types].xml") != null;
             }
-            return false;
         } catch (IOException exception) {
             return false;
+        } finally {
+            if (temp != null) {
+                try {
+                    Files.deleteIfExists(temp);
+                } catch (IOException ignored) {
+                    //---- Temp file órfão não pode impedir o upload.
+                }
+            }
         }
     }
 

@@ -114,6 +114,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, 
                 OR (
                   c.type = 'GROUP'
                   AND EXISTS (
+                    SELECT 1 FROM groups g
+                    WHERE g.id = c.group_id AND g.status = 'ACTIVE'
+                  )
+                  AND EXISTS (
                     SELECT 1 FROM group_members gm
                     WHERE gm.group_id = c.group_id
                       AND gm.user_id = :userId

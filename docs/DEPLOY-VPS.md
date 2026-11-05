@@ -40,6 +40,9 @@ Use TTL `300` durante a migração e `3600` depois.
 > O `CNAME cname.vercel-dns.com.` também é aceito como fallback.
 > Remova o `A 91.195.240.94` (parking do Name.com) e qualquer outro `A`/`CNAME` antigo de `@`/`www`.
 >
+> Crie o `TXT _vercel` **somente se** o `vercel domains verify` pedir; o valor deve ser copiado exatamente da
+> saída do comando. Neste projeto a verificação atual não exigiu TXT (ownership já está no escopo).
+>
 > Se você colocar Cloudflare na frente do DNS, deixe o record `api` como **DNS only** (nuvem cinza) para o Caddy
 > conseguir emitir o certificado via HTTP-01. Proxy laranja exigiria certificado de origem ou DNS-01.
 
@@ -68,7 +71,7 @@ Só faça isso se não houver e-mail ou outros serviços usando o DNS atual.
 6. Só depois de `api.devrats.app` resolver para a VPS, adicione o bloco no Caddy para emitir o certificado da API.
 
 > ⚠️ O IP público da VPS precisa continuar estático no Azure (Public IP → Configuration → Static). Se ele mudar,
-> atualize o record `A api` e o `GITHUB_CALLBACK_URL`/webhook.
+> atualize **somente** o record `A api`; `GITHUB_CALLBACK_URL` e webhook continuam usando `api.devrats.app`.
 
 ## Ordem de migração
 
@@ -271,7 +274,16 @@ Sem isso, o link `mailto:` abre o cliente de e-mail do usuário, mas a mensagem 
 ## Rollback
 
 ```bash
+# 1. Restaure o Caddyfile anterior e recarregue o proxy.
 sudo cp /opt/evolution/Caddyfile.bak.2026-10-30 /opt/evolution/Caddyfile
 docker exec evolution_caddy caddy reload --config /etc/caddy/Caddyfile
-cd /opt/devstreak && docker compose down
+
+# 2. Volte o código/imagem para o commit anterior e suba a API novamente.
+cd /opt/devstreak
+docker compose down
+docker compose up -d --build
+
+# 3. Confirme que o container está saudável antes de encerrar o rollback.
+docker ps --filter name=devstreak_api --format '{{.Names}} {{.Status}}'
+curl -s https://api.devrats.app/actuator/health
 ```
