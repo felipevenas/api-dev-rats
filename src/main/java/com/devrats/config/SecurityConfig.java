@@ -77,6 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/invites/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/webhooks/github",
                                 "/api/v1/integrations/github/callback", "/api/v1/integrations/github/setup").permitAll()
+                        //---- O upgrade do browser não envia Authorization; o STOMP CONNECT autentica via JWT.
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated())

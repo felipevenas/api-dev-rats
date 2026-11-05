@@ -10,6 +10,7 @@ import com.devrats.repositories.GroupMemberRepository;
 import com.devrats.repositories.NotificationRepository;
 import com.devrats.repositories.UserPresenceRepository;
 import com.devrats.repositories.UserRepository;
+import com.devrats.services.ChatService;
 import com.devrats.services.RefreshTokenService;
 import com.devrats.services.storage.AvatarStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ class UserServiceImplTest {
     private final FriendshipRepository friendshipRepository = mock(FriendshipRepository.class);
     private final UserPresenceRepository presenceRepository = mock(UserPresenceRepository.class);
     private final NotificationRepository notificationRepository = mock(NotificationRepository.class);
+    private final ChatService chatService = mock(ChatService.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final AvatarStorage avatarStorage = mock(AvatarStorage.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
@@ -52,7 +54,7 @@ class UserServiceImplTest {
     void setUp() {
         service = new UserServiceImpl(userRepository, githubAccountRepository, groupMemberRepository,
                 participantRepository, friendshipRepository, presenceRepository, notificationRepository,
-                refreshTokenService, avatarStorage, passwordEncoder,
+                chatService, refreshTokenService, avatarStorage, passwordEncoder,
                 Clock.fixed(Instant.parse("2026-11-03T12:00:00Z"), ZoneOffset.UTC));
         userId = UUID.randomUUID();
         user = new UserEntity();
@@ -70,6 +72,7 @@ class UserServiceImplTest {
                 .thenReturn(List.of());
         when(participantRepository.findAllByUserIdAndStatus(userId, com.devrats.enums.ParticipantStatus.ACTIVE))
                 .thenReturn(List.of());
+        when(chatService.exportSentMessages(userId)).thenReturn(List.of());
     }
 
     @Test

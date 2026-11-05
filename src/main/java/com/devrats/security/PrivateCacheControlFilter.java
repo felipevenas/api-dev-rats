@@ -28,7 +28,8 @@ public class PrivateCacheControlFilter extends OncePerRequestFilter {
             "/api/v1/me",
             "/api/v1/users",
             "/api/v1/friends",
-            "/api/v1/presence"
+            "/api/v1/presence",
+            "/api/v1/chat"
     );
 
     @Override

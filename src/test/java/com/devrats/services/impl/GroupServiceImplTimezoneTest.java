@@ -20,6 +20,7 @@ import com.devrats.repositories.GroupRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.AuditService;
 import com.devrats.services.ChallengeService;
+import com.devrats.services.ChatService;
 import com.devrats.services.GroupAccessService;
 import com.devrats.services.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,7 @@ class GroupServiceImplTimezoneTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ChallengeService challengeService = mock(ChallengeService.class);
     private final GroupAccessService accessService = mock(GroupAccessService.class);
+    private final ChatService chatService = mock(ChatService.class);
     private final AuditService auditService = mock(AuditService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
 
@@ -63,7 +65,8 @@ class GroupServiceImplTimezoneTest {
     @BeforeEach
     void setUp() {
         service = new GroupServiceImpl(groupRepository, memberRepository, challengeRepository, participantRepository,
-                userRepository, challengeService, accessService, auditService, notificationService, new AppProperties(),
+                userRepository, challengeService, accessService, chatService, auditService, notificationService,
+                new AppProperties(),
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         creatorId = UUID.randomUUID();
         UserEntity creator = new UserEntity();

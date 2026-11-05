@@ -21,6 +21,7 @@ import com.devrats.exceptions.ValidationException;
 import com.devrats.repositories.FriendshipRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.AuditService;
+import com.devrats.services.ChatService;
 import com.devrats.services.FriendService;
 import com.devrats.services.NotificationService;
 import com.devrats.services.PresenceService;
@@ -77,6 +78,7 @@ public class FriendServiceImpl implements FriendService {
     private final FriendshipRepository friendshipRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ChatService chatService;
     private final AuditService auditService;
     private final PresenceService presenceService;
     private final SocialRateLimitService socialRateLimitService;
@@ -87,6 +89,7 @@ public class FriendServiceImpl implements FriendService {
     public FriendServiceImpl(FriendshipRepository friendshipRepository,
                              UserRepository userRepository,
                              NotificationService notificationService,
+                             ChatService chatService,
                              AuditService auditService,
                              PresenceService presenceService,
                              SocialRateLimitService socialRateLimitService,
@@ -96,6 +99,7 @@ public class FriendServiceImpl implements FriendService {
         this.friendshipRepository = friendshipRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.chatService = chatService;
         this.auditService = auditService;
         this.presenceService = presenceService;
         this.socialRateLimitService = socialRateLimitService;
@@ -253,6 +257,7 @@ public class FriendServiceImpl implements FriendService {
                 .orElseThrow(() -> new NotFoundException(ErrorCode.FRIENDSHIP_NOT_FOUND));
         Map<String, Object> metadata = pairMetadata(friendship);
         friendshipRepository.delete(friendship);
+        chatService.revokeDirectAccess(userId, friendUserId);
         auditService.record(userId, ENTITY_TYPE, friendship.getId(), AuditAction.FRIEND_REMOVED, metadata);
     }
 

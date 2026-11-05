@@ -1,0 +1,10 @@
+package com.devrats.dto.chat;
+
+import jakarta.validation.constraints.NotNull;
+
+import java.util.UUID;
+
+public record MarkReadRequest(
+        @NotNull UUID lastMessageId
+) {
+}

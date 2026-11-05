@@ -19,6 +19,7 @@ import com.devrats.exceptions.ValidationException;
 import com.devrats.repositories.FriendshipRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.AuditService;
+import com.devrats.services.ChatService;
 import com.devrats.services.NotificationService;
 import com.devrats.services.PresenceService;
 import com.devrats.services.SocialRateLimitService;
@@ -72,6 +73,9 @@ class FriendServiceImplTest {
     private NotificationService notificationService;
 
     @Mock
+    private ChatService chatService;
+
+    @Mock
     private AuditService auditService;
 
     @Mock
@@ -88,8 +92,9 @@ class FriendServiceImplTest {
         properties.getFriends().setMaxPerUser(1000);
         properties.getFriends().setMaxPendingOutgoing(50);
         properties.getFriends().setDeclinedCooldown(Duration.ofHours(72));
-        service = new FriendServiceImpl(friendshipRepository, userRepository, notificationService, auditService,
-                presenceService, socialRateLimitService, properties, CLOCK, new DirectTransactionManager());
+        service = new FriendServiceImpl(friendshipRepository, userRepository, notificationService, chatService,
+                auditService, presenceService, socialRateLimitService, properties, CLOCK,
+                new DirectTransactionManager());
     }
 
     @Test
