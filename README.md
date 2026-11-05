@@ -36,7 +36,7 @@ Este repositório contém **somente o backend**. O frontend React está em [`../
 ## Stack
 
 - Java 25 LTS
-- Spring Boot 4.1.2 (Web MVC, Security, Data JPA, Validation, Actuator)
+- Spring Boot 4.1.2 (Web MVC, Security, Data JPA, Validation, Actuator, WebSocket/STOMP)
 - PostgreSQL 17 + Flyway
 - Maven Wrapper
 - Spring Security JWT (HS256) + refresh token rotativo em cookie HttpOnly
@@ -61,6 +61,7 @@ src/main/java/com/devrats/
 ├── services/impl/    implementações transacionais
 ├── services/github/  cliente e autenticação da GitHub App
 ├── services/activity/ elegibilidade, processamento de webhook e reconciliação
+├── services/chat/    políticas de anexo, eventos e publicação STOMP
 └── utils/            helpers puros e utilitários de segurança
 ```
 
@@ -160,6 +161,11 @@ Copie `.env.example` para `.env` e preencha os segredos. As principais variávei
 | `APP_FRIENDS_DECLINED_COOLDOWN` | Janela de bloqueio do par após uma recusa (padrão `PT72H`) |
 | `APP_PRESENCE_ONLINE_WINDOW`, `APP_PRESENCE_AWAY_WINDOW` | Janelas de presença (padrão `PT2M` e `PT10M`) |
 | `APP_SOCIAL_SEARCH_PER_MINUTE`, `APP_SOCIAL_FRIEND_REQUEST_PER_HOUR` | Limite por usuário na busca e no envio de solicitações |
+| `APP_CHAT_STORAGE_BUCKET`, `APP_CHAT_STORAGE_KEY_PREFIX` | Bucket privado e prefixo dos anexos de chat |
+| `APP_CHAT_ATTACHMENT_URL_TTL` | Validade da URL assinada de download (padrão `PT15M`) |
+| `APP_CHAT_MAX_IMAGE_BYTES`, `APP_CHAT_MAX_VOICE_BYTES`, `APP_CHAT_MAX_FILE_BYTES` | Limites de upload por tipo |
+| `APP_CHAT_MESSAGES_PER_MINUTE`, `APP_CHAT_UPLOADS_PER_MINUTE` | Rate limit por usuário no chat |
+| `APP_CHAT_TYPING_THROTTLE`, `APP_CHAT_MAX_SESSIONS_PER_USER` | Throttle de digitação e limite de conexões WebSocket |
 
 Segredos nunca são versionados. O profile `local` precisa ser ativado explicitamente e `.env.example` contém apenas valores de exemplo.
 
@@ -258,7 +264,22 @@ Todas as rotas são versionadas em `/api/v1`.
 - `DELETE /friends/{userId}`
 - `POST /presence/heartbeat`
 
-Perfil público, busca, amigos, solicitações e presença respondem com `Cache-Control: no-store`. A presença (`ONLINE`, `AWAY`, `OFFLINE`) só é exposta a amigos ou ao próprio titular — o instante do heartbeat nunca sai da API. Busca e envio de solicitação têm rate limit por IP e por usuário; um 429 sempre traz o header `Retry-After`.
+### Chat em tempo real
+
+- `GET /chat/conversations?page=&size=`
+- `POST /chat/conversations`
+- `GET /chat/conversations/{conversationId}`
+- `GET /chat/conversations/{conversationId}/messages?before=&limit=`
+- `POST /chat/conversations/{conversationId}/messages`
+- `POST /chat/conversations/{conversationId}/messages/attachments`
+- `POST /chat/conversations/{conversationId}/read`
+- `DELETE /chat/messages/{messageId}`
+- `GET /chat/unread-count`
+- `GET /chat/attachments/{attachmentId}/url`
+
+O WebSocket fica em `ws(s)://<api>/ws` (STOMP). O cliente envia o JWT no header `Authorization` do frame `CONNECT` e assina `/user/queue/chat`. O envio de mensagens usa REST para preservar idempotência, validação, multipart e ProblemDetail; o socket entrega os eventos ao vivo. Anexos ficam em bucket S3 privado e são baixados por URL assinada de curta duração.
+
+Perfil público, busca, amigos, solicitações, presença e chat respondem com `Cache-Control: no-store`. A presença (`ONLINE`, `AWAY`, `OFFLINE`) só é exposta a amigos ou ao próprio titular — o instante do heartbeat nunca sai da API. Busca, envio de solicitação, mensagens e uploads têm rate limit por IP/usuário; um 429 sempre traz o header `Retry-After`.
 
 Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `traceId`.
 
@@ -287,7 +308,9 @@ O CI executa `./mvnw -B verify` em JDK 25 e publica o relatório do JaCoCo como 
 
 - O envio de e-mail de recuperação de senha não está integrado. Em `local`, o token é devolvido na resposta (`app.auth.expose-reset-token=true`); em produção, conecte um provedor de e-mail antes de habilitar o fluxo.
 - A validação real da GitHub App depende das credenciais e de uma URL pública de webhook (`smee.io`/`ngrok` em desenvolvimento). Sem elas, o status é `appConfigured=false`.
-- A reconciliação e os jobs agendados assumem uma única instância da API. Para múltiplas réplicas, adicione um lock distribuído (ShedLock/Redis) antes de escalar horizontalmente.
+- A reconciliação, os jobs agendados e o broker STOMP simples assumem uma única instância da API. Para múltiplas réplicas, adicione um lock distribuído (ShedLock/Redis) e um broker relay (RabbitMQ) ou uma ponte Redis Pub/Sub antes de escalar horizontalmente.
+- O chat v1 aceita um anexo por mensagem; criptografia ponta a ponta, push notification, busca/edição de mensagens, moderação e virus scanning ficam para evoluções.
+- O bucket de anexos do chat precisa ser privado; sem `APP_CHAT_STORAGE_BUCKET` o chat de texto funciona, mas uploads retornam 503.
 - Correções retroativas de resultado exigem procedimento administrativo auditado; não há endpoint público para alterar um vencedor já finalizado.
 
 ---

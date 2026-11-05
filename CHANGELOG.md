@@ -24,6 +24,13 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Notificações sociais**: `FRIEND_REQUEST` e `FRIEND_REQUEST_ACCEPTED` com ações inline na central de alertas.
 - **Privacidade**: exclusão de conta remove o grafo social e a presença; exportação LGPD inclui as amizades mínimas e o último heartbeat do titular.
 - **Rate limit social**: limites por IP e por usuário na busca e no envio de solicitações, com `Retry-After` em toda resposta 429.
+- **Chat em tempo real**: conversas privadas entre amigos e chat automático para grupos ativos, com histórico paginado por cursor, contador de não lidas, cursor de leitura e exclusão lógica de mensagens.
+- **WebSocket/STOMP**: endpoint `/ws` com autenticação JWT no frame `CONNECT`, entrega de eventos por `/user/queue/chat`, reconexão do cliente, heartbeats, limite de sessões e fechamento server-side quando o token expira.
+- **Mensagens**: texto, imagem, mensagem de voz e documento; `clientMessageId` garante idempotência de retry e o evento é publicado apenas depois do commit.
+- **Anexos privados**: bucket S3 separado para chat, upload multipart validado por magic bytes, imagens reencodadas em JPEG sem EXIF, limites por tipo e download por URL assinada de curta duração.
+- **Segurança do chat**: autorização derivada de amizade `ACCEPTED`/membro `ACTIVE`, 404 para não participantes, rate limit por usuário, `Cache-Control: no-store` e logs sem conteúdo ou nome de arquivo.
+- **LGPD**: exportação inclui apenas mensagens enviadas pelo titular; exclusão de conta encerra sessões WebSocket e anonimiza o autor sem apagar o histórico dos demais.
+- **Operação**: métricas de sessões e mensagens, timeouts de upload/S3 e documentação do caminho de escala com Redis/RabbitMQ.
 
 ### 🔧 Corrigido
 
@@ -41,6 +48,17 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Descrição e topics do repositório alinhados ao ecossistema DevRats.
 - Setup da GitHub App documenta as URLs de redirecionamento e os códigos de erro do callback.
 - Migration `V4` modela o compartilhamento de instalações entre contas.
+- `docs/PR-CHAT.md` consolida o corpo do PR, decisões e pontos de melhoria da feature.
+- `docs/DEPLOY-VPS.md` atualizado para o domínio `devrats.app`: DNS no Name.com, API em `api.devrats.app`, Caddy com TLS automático, rewrite da Vercel e `VITE_WS_URL` direto para o WebSocket.
+- `vercel.json` do frontend aponta o rewrite de `/api` para `https://api.devrats.app`; `index.html` usa canonical/OG em `https://devrats.app`.
+
+### ⚠️ Limitações conhecidas
+
+- O broker STOMP simples vive na memória de uma instância. Múltiplas réplicas exigem RabbitMQ (relay STOMP) ou uma ponte Pub/Sub com Redis.
+- Rate limit e presença continuam locais à instância; a migração para Redis está documentada como evolução.
+- Chat não tem criptografia ponta a ponta, push notification, edição/busca de mensagens, reações ou moderação de conteúdo.
+- A v1 aceita um anexo por mensagem; vírus scanning e transcodificação de áudio ficam fora do escopo.
+- HEIC não é aceito porque o JDK não decodifica o formato nativamente.
 
 ## [0.1.0] - 2026-10-28
 

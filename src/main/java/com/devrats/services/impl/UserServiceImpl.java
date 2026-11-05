@@ -25,6 +25,7 @@ import com.devrats.repositories.NotificationRepository;
 import com.devrats.repositories.RefreshTokenRepository;
 import com.devrats.repositories.UserPresenceRepository;
 import com.devrats.repositories.UserRepository;
+import com.devrats.services.ChatService;
 import com.devrats.services.RefreshTokenService;
 import com.devrats.services.UserService;
 import com.devrats.services.storage.AvatarStorage;
@@ -53,6 +54,7 @@ public class UserServiceImpl implements UserService {
     private final FriendshipRepository friendshipRepository;
     private final UserPresenceRepository presenceRepository;
     private final NotificationRepository notificationRepository;
+    private final ChatService chatService;
     private final RefreshTokenService refreshTokenService;
     private final AvatarStorage avatarStorage;
     private final PasswordEncoder passwordEncoder;
@@ -65,6 +67,7 @@ public class UserServiceImpl implements UserService {
                            FriendshipRepository friendshipRepository,
                            UserPresenceRepository presenceRepository,
                            NotificationRepository notificationRepository,
+                           ChatService chatService,
                            RefreshTokenService refreshTokenService,
                            AvatarStorage avatarStorage,
                            PasswordEncoder passwordEncoder,
@@ -76,6 +79,7 @@ public class UserServiceImpl implements UserService {
         this.friendshipRepository = friendshipRepository;
         this.presenceRepository = presenceRepository;
         this.notificationRepository = notificationRepository;
+        this.chatService = chatService;
         this.refreshTokenService = refreshTokenService;
         this.avatarStorage = avatarStorage;
         this.passwordEncoder = passwordEncoder;
@@ -152,7 +156,7 @@ public class UserServiceImpl implements UserService {
                 user.getAvatarUrl(), user.getAvatarSource() == null ? "NONE" : user.getAvatarSource().name(),
                 user.getBio(), user.getLocation(), user.getWebsiteUrl(), user.getExperienceLevel(),
                 TechStack.fromCsv(user.getPrimaryStack()), user.getTimezone(), user.getCreatedAt(), groups,
-                friendships, lastSeenAt);
+                friendships, lastSeenAt, chatService.exportSentMessages(userId));
     }
 
     @Override
@@ -182,6 +186,7 @@ public class UserServiceImpl implements UserService {
         deleteAvatarObjectQuietly(avatarObjectKey);
 
         refreshTokenService.revokeAllForUser(userId);
+        chatService.closeSessions(userId);
         githubAccountRepository.findByUserId(userId).ifPresent(account -> disconnect(account, now));
         groupMemberRepository.findAllByUserIdAndStatus(userId, MemberStatus.ACTIVE).forEach(member -> {
             member.setStatus(MemberStatus.LEFT);

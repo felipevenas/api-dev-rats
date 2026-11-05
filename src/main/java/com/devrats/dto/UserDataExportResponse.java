@@ -1,5 +1,6 @@
 package com.devrats.dto;
 
+import com.devrats.enums.ChatMessageType;
 import com.devrats.enums.ExperienceLevel;
 import com.devrats.enums.TechStack;
 
@@ -23,7 +24,8 @@ public record UserDataExportResponse(
         Instant createdAt,
         List<GroupMembership> groups,
         List<Friendship> friendships,
-        Instant lastSeenAt
+        Instant lastSeenAt,
+        List<ChatMessageExport> chatMessages
 ) {
 
     public record GroupMembership(
@@ -45,6 +47,27 @@ public record UserDataExportResponse(
             String status,
             Instant createdAt,
             Instant respondedAt
+    ) {
+    }
+
+    /**
+     * Exporta apenas mensagens enviadas pelo titular. O conteúdo recebido de
+     * terceiros não entra no arquivo de portabilidade.
+     */
+    public record ChatMessageExport(
+            UUID conversationId,
+            ChatMessageType type,
+            String body,
+            Instant createdAt,
+            boolean deleted,
+            List<ChatAttachmentExport> attachments
+    ) {
+    }
+
+    public record ChatAttachmentExport(
+            String fileName,
+            String contentType,
+            long sizeBytes
     ) {
     }
 }

@@ -29,6 +29,7 @@ import com.devrats.repositories.GroupRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.AuditService;
 import com.devrats.services.ChallengeService;
+import com.devrats.services.ChatService;
 import com.devrats.services.GroupAccessService;
 import com.devrats.services.GroupService;
 import com.devrats.services.NotificationService;
@@ -53,6 +54,7 @@ public class GroupServiceImpl implements GroupService {
     private final UserRepository userRepository;
     private final ChallengeService challengeService;
     private final GroupAccessService accessService;
+    private final ChatService chatService;
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final AppProperties properties;
@@ -65,6 +67,7 @@ public class GroupServiceImpl implements GroupService {
                             UserRepository userRepository,
                             ChallengeService challengeService,
                             GroupAccessService accessService,
+                            ChatService chatService,
                             AuditService auditService,
                             NotificationService notificationService,
                             AppProperties properties,
@@ -76,6 +79,7 @@ public class GroupServiceImpl implements GroupService {
         this.userRepository = userRepository;
         this.challengeService = challengeService;
         this.accessService = accessService;
+        this.chatService = chatService;
         this.auditService = auditService;
         this.notificationService = notificationService;
         this.properties = properties;
@@ -105,6 +109,7 @@ public class GroupServiceImpl implements GroupService {
         owner.setRole(GroupRole.OWNER);
         owner.setStatus(MemberStatus.ACTIVE);
         memberRepository.save(owner);
+        chatService.createGroupConversation(group.getId());
 
         ChallengeResponse challenge = challengeService.createDraft(group.getId(), creatorId, request.challenge());
         auditService.record(creatorId, "GROUP", group.getId(), AuditAction.GROUP_CREATED,
@@ -169,6 +174,7 @@ public class GroupServiceImpl implements GroupService {
         target.setLeftAt(now);
         memberRepository.save(target);
         removeParticipant(groupId, memberUserId, now, ParticipantStatus.REMOVED);
+        chatService.revokeGroupAccess(groupId, memberUserId);
         auditService.record(actorId, "GROUP", groupId, AuditAction.MEMBER_REMOVED,
                 Map.of("memberUserId", memberUserId.toString()));
     }
@@ -187,6 +193,7 @@ public class GroupServiceImpl implements GroupService {
         member.setLeftAt(now);
         memberRepository.save(member);
         removeParticipant(groupId, userId, now, ParticipantStatus.LEFT);
+        chatService.revokeGroupAccess(groupId, userId);
         auditService.record(userId, "GROUP", groupId, AuditAction.MEMBER_LEFT, null);
     }
 
@@ -205,6 +212,7 @@ public class GroupServiceImpl implements GroupService {
                 .filter(memberId -> !memberId.equals(userId))
                 .forEach(memberId -> notificationService.notify(memberId, NotificationType.GROUP_DELETED, null,
                         "group-deleted:" + groupId, Map.of("groupName", groupName)));
+        chatService.handleGroupDeletion(groupId);
         groupRepository.delete(group);
         auditService.record(userId, "GROUP", groupId, AuditAction.GROUP_DELETED, Map.of("name", groupName));
     }

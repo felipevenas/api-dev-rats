@@ -26,6 +26,7 @@ public class AppProperties {
     private final Friends friends = new Friends();
     private final Presence presence = new Presence();
     private final Social social = new Social();
+    private final Chat chat = new Chat();
     private String frontendUrl = "http://localhost:5173";
 
     @Getter
@@ -134,6 +135,35 @@ public class AppProperties {
 
     @Getter
     @Setter
+    public static class Chat {
+        private int maxTextChars = 2000;
+        private int pageSize = 30;
+        private int maxPageSize = 100;
+        private long maxImageBytes = 8_388_608;
+        private long maxVoiceBytes = 16_777_216;
+        private long maxFileBytes = 20_971_520;
+        private int maxVoiceSeconds = 300;
+        private int messagesPerMinute = 30;
+        private int uploadsPerMinute = 10;
+        private Duration typingThrottle = Duration.ofSeconds(2);
+        private Duration attachmentUrlTtl = Duration.ofMinutes(15);
+        private int maxSessionsPerUser = 5;
+        private final ChatStorage storage = new ChatStorage();
+    }
+
+    @Getter
+    @Setter
+    public static class ChatStorage {
+        private String bucket;
+        private String keyPrefix = "chat";
+
+        public boolean isConfigured() {
+            return bucket != null && !bucket.isBlank();
+        }
+    }
+
+    @Getter
+    @Setter
     public static class Storage {
         private String endpoint;
         //---- R2 requires "auto"; AWS ignores this when an endpoint override is set.
@@ -147,9 +177,13 @@ public class AppProperties {
 
         public boolean isConfigured() {
             return bucket != null && !bucket.isBlank()
-                    && accessKey != null && !accessKey.isBlank()
-                    && secretKey != null && !secretKey.isBlank()
+                    && hasCredentials()
                     && publicBaseUrl != null && !publicBaseUrl.isBlank();
+        }
+
+        public boolean hasCredentials() {
+            return accessKey != null && !accessKey.isBlank()
+                    && secretKey != null && !secretKey.isBlank();
         }
     }
 }
