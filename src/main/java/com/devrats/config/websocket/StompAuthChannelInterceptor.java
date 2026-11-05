@@ -1,5 +1,7 @@
 package com.devrats.config.websocket;
 
+import com.devrats.enums.UserStatus;
+import com.devrats.repositories.UserRepository;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -15,23 +17,30 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Autentica o frame STOMP CONNECT com o access token JWT.
+ * Autentica o frame STOMP CONNECT e autoriza os destinos do chat.
  *
  * <p>O handshake HTTP é liberado no SecurityConfig porque o browser não
- * consegue enviar Authorization no upgrade; a autenticação real acontece aqui,
- * antes de qualquer SUBSCRIBE/SEND.</p>
+ * consegue enviar Authorization no upgrade; a autenticação real acontece aqui.
+ * SUBSCRIBE só pode ir para a fila privada do próprio usuário e SEND só pode
+ * chamar o handler de digitação — destinos de broker diretos são rejeitados.</p>
  */
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String CHAT_SUBSCRIPTION = "/user/queue/chat";
+    private static final String TYPING_DESTINATION = "/app/chat.typing";
 
     private final JwtDecoder jwtDecoder;
     private final WebSocketSessionRegistry sessionRegistry;
+    private final UserRepository userRepository;
 
-    public StompAuthChannelInterceptor(JwtDecoder jwtDecoder, WebSocketSessionRegistry sessionRegistry) {
+    public StompAuthChannelInterceptor(JwtDecoder jwtDecoder,
+                                       WebSocketSessionRegistry sessionRegistry,
+                                       UserRepository userRepository) {
         this.jwtDecoder = jwtDecoder;
         this.sessionRegistry = sessionRegistry;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -43,8 +52,18 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             authenticate(accessor);
-        } else if (requiresAuthentication(accessor.getCommand()) && accessor.getUser() == null) {
-            throw new MessageDeliveryException("Não autenticado");
+            return message;
+        }
+
+        if (StompCommand.SEND.equals(accessor.getCommand())
+                || StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            ChatPrincipal principal = requirePrincipal(accessor);
+            requireActiveAccount(principal.userId());
+            if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+                requireDestination(accessor, CHAT_SUBSCRIPTION);
+            } else {
+                requireDestination(accessor, TYPING_DESTINATION);
+            }
         }
         return message;
     }
@@ -62,6 +81,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             if (expiresAt == null) {
                 throw new MessageDeliveryException("Token sem expiração");
             }
+            requireActiveAccount(userId);
             ChatPrincipal principal = new ChatPrincipal(userId, expiresAt);
             accessor.setUser(principal);
             sessionRegistry.authenticate(accessor.getSessionId(), principal);
@@ -70,7 +90,24 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
     }
 
-    private boolean requiresAuthentication(StompCommand command) {
-        return StompCommand.SEND.equals(command) || StompCommand.SUBSCRIBE.equals(command);
+    private ChatPrincipal requirePrincipal(StompHeaderAccessor accessor) {
+        if (accessor.getUser() instanceof ChatPrincipal principal) {
+            return principal;
+        }
+        throw new MessageDeliveryException("Não autenticado");
+    }
+
+    private void requireActiveAccount(UUID userId) {
+        //---- Token válido de conta removida/suspensa não pode abrir nem usar o canal.
+        if (!userRepository.existsByIdAndStatus(userId, UserStatus.ACTIVE)) {
+            throw new MessageDeliveryException("Conta inativa");
+        }
+    }
+
+    private void requireDestination(StompHeaderAccessor accessor, String expected) {
+        String destination = accessor.getDestination();
+        if (destination == null || !destination.equals(expected)) {
+            throw new MessageDeliveryException("Destino não autorizado");
+        }
     }
 }

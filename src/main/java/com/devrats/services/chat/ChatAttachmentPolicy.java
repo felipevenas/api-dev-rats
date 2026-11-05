@@ -9,9 +9,12 @@ import com.devrats.utils.ChatImageProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Valida e normaliza anexos antes de qualquer escrita no S3.
@@ -128,10 +131,31 @@ public class ChatAttachmentPolicy {
     private boolean isValidFile(byte[] content, String extension) {
         return switch (extension) {
             case "pdf" -> startsWith(content, PDF_SIGNATURE);
-            case "docx", "xlsx", "pptx" -> startsWith(content, new byte[]{'P', 'K', 0x03, 0x04});
+            case "docx", "xlsx", "pptx" -> startsWith(content, new byte[]{'P', 'K', 0x03, 0x04})
+                    && isValidOfficeArchive(content);
             case "txt", "csv" -> isPlainText(content);
             default -> false;
         };
+    }
+
+    /**
+     * Um .docx/.xlsx/.pptx é um ZIP OOXML e precisa conter o manifesto
+     * {@code [Content_Types].xml}; isso evita aceitar qualquer ZIP renomeado.
+     */
+    private boolean isValidOfficeArchive(byte[] content) {
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(content))) {
+            ZipEntry entry;
+            int inspected = 0;
+            while ((entry = zip.getNextEntry()) != null && inspected < 200) {
+                inspected++;
+                if ("[Content_Types].xml".equals(entry.getName())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (IOException exception) {
+            return false;
+        }
     }
 
     private boolean isPlainText(byte[] content) {

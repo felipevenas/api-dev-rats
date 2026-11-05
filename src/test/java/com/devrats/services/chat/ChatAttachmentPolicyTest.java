@@ -8,6 +8,11 @@ import com.devrats.exceptions.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -26,6 +31,31 @@ class ChatAttachmentPolicyTest {
         assertThat(validated.kind()).isEqualTo(AttachmentKind.FILE);
         assertThat(validated.contentType()).isEqualTo("application/pdf");
         assertThat(validated.originalName()).isEqualTo("contrato.pdf");
+    }
+
+    @Test
+    void shouldAcceptOoxmlDocumentWithContentTypesManifest() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "documento.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                zipWith("[Content_Types].xml"));
+
+        ChatAttachmentPolicy.ValidatedAttachment validated =
+                policy.validate(ChatMessageType.FILE, file, null);
+
+        assertThat(validated.kind()).isEqualTo(AttachmentKind.FILE);
+        assertThat(validated.contentType()).contains("wordprocessingml");
+    }
+
+    @Test
+    void shouldRejectRenamedZipWithoutOoxmlManifest() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "documento.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                zipWith("payload.txt"));
+
+        assertThatThrownBy(() -> policy.validate(ChatMessageType.FILE, file, null))
+                .isInstanceOf(DomainException.class)
+                .extracting(exception -> ((DomainException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.ATTACHMENT_INVALID_FORMAT);
     }
 
     @Test
@@ -63,6 +93,16 @@ class ChatAttachmentPolicyTest {
                 .isInstanceOf(DomainException.class)
                 .extracting(exception -> ((DomainException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    private byte[] zipWith(String entryName) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry(entryName));
+            zip.write("<Types/>".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return output.toByteArray();
     }
 
     @Test

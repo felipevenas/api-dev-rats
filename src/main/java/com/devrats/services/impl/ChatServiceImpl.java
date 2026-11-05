@@ -62,6 +62,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -722,7 +723,10 @@ public class ChatServiceImpl implements ChatService {
         name = name.replace("\"", "").replace("\r", "").replace("\n", "");
         String disposition = attachment.getKind() == com.devrats.enums.AttachmentKind.FILE
                 ? "attachment" : "inline";
-        return disposition + "; filename=\"" + name + "\"";
+        //---- RFC 6266: fallback ASCII + filename* percent-encoded para nomes não-ASCII.
+        String fallback = name.replaceAll("[^\\x20-\\x7E]", "_");
+        String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
+        return disposition + "; filename=\"" + fallback + "\"; filename*=UTF-8''" + encoded;
     }
 
     private ChatUserSummary toUserSummary(UserEntity user) {

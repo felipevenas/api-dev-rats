@@ -70,14 +70,14 @@ Só faça isso se não houver e-mail ou outros serviços usando o DNS atual.
 > ⚠️ O IP público da VPS precisa continuar estático no Azure (Public IP → Configuration → Static). Se ele mudar,
 > atualize o record `A api` e o `GITHUB_CALLBACK_URL`/webhook.
 
-## Ordem de migração (sem downtime)
+## Ordem de migração
 
 1. **DNS**: crie `A @`, `CNAME www`, `A api` e o `TXT _vercel` no Name.com. Aguarde propagar.
 2. **Vercel**: adicione `devrats.app` e `www.devrats.app` ao projeto e espere o TLS.
 3. **Caddy**: adicione o bloco `api.devrats.app` mantendo o `sslip.io`; recarregue e confirme
    `curl -s https://api.devrats.app/actuator/health`.
 4. **API**: atualize `APP_FRONTEND_URL`, `APP_CORS_ALLOWED_ORIGINS`, `GITHUB_CALLBACK_URL` e `GITHUB_SETUP_URL`
-   no `/opt/devstreak/.env`; recrie o container.
+   no `/opt/devstreak/.env`; recrie o container (há um restart breve de uma única instância).
 5. **Vercel env**: defina `VITE_WS_URL=wss://api.devrats.app/ws` e faça o deploy de produção.
 6. **GitHub App**: atualize Homepage, Callback, Setup e Webhook para o novo domínio.
 7. **Validação**: login, refresh, upload de avatar, OAuth, webhook, chat REST e chat WebSocket.
@@ -188,7 +188,9 @@ APP_CHAT_STORAGE_KEY_PREFIX=chat
 APP_CHAT_ATTACHMENT_URL_TTL=PT15M
 ```
 
-`RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` é obrigatório atrás de proxy.
+`RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` depende de o proxy preservar o IP real do cliente na primeira posição
+do `X-Forwarded-For`. Confirme isso no Caddy/Vercel antes de manter habilitado; caso contrário, o header é
+spoofável e o rate limit por IP perde valor.
 
 > Cuidado ao rodar comandos em pipeline: `docker compose up -d --force-recreate | tail -2` pode morrer por SIGPIPE
 > e **não** recriar o container. Rode sem pipe e confira com
@@ -210,8 +212,9 @@ cd webapp-dev-rats
 vercel --prod --scope felipevenas-projects
 ```
 
-`vercel.json` define `outputDirectory: dist`, o rewrite de `/api` e o fallback de SPA. **Não** defina
-`VITE_API_BASE_URL`: o padrão do app é `/api/v1` (mesma origem). Defina **somente**:
+`vercel.json` define `outputDirectory: dist`, o rewrite de `/api` e o fallback de SPA. **Remova**
+`VITE_API_BASE_URL` do ambiente de Production da Vercel: o padrão do app é `/api/v1` (mesma origem). Defina
+**somente**:
 
 ```env
 VITE_WS_URL=wss://api.devrats.app/ws

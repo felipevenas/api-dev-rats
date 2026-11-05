@@ -23,6 +23,8 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 
     boolean existsByUsernameIgnoreCase(String username);
 
+    boolean existsByIdAndStatus(UUID id, UserStatus status);
+
     Optional<UserEntity> findByUsernameAndStatus(String username, UserStatus status);
 
     /**

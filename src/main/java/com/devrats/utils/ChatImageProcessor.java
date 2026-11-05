@@ -13,6 +13,7 @@ import javax.imageio.stream.ImageOutputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -39,7 +40,7 @@ public final class ChatImageProcessor {
 
     public static ProcessedImage process(byte[] source, long maxBytes) {
         validatePayload(source, maxBytes);
-        BufferedImage image = readImage(source);
+        BufferedImage image = applyOrientation(readImage(source), readOrientation(source));
         BufferedImage normalized = scale(image);
         return new ProcessedImage(encodeJpeg(normalized), normalized.getWidth(), normalized.getHeight());
     }
@@ -79,7 +80,12 @@ public final class ChatImageProcessor {
                     throw new DomainException(ErrorCode.ATTACHMENT_INVALID_FORMAT,
                             "Dimensões de imagem inválidas");
                 }
-                BufferedImage image = reader.read(0);
+                BufferedImage image;
+                try {
+                    image = reader.read(0);
+                } catch (RuntimeException exception) {
+                    throw new DomainException(ErrorCode.ATTACHMENT_INVALID_FORMAT, "Arquivo de imagem inválido");
+                }
                 if (image == null) {
                     throw new DomainException(ErrorCode.ATTACHMENT_INVALID_FORMAT, "Arquivo de imagem inválido");
                 }
@@ -90,6 +96,146 @@ public final class ChatImageProcessor {
         } catch (IOException exception) {
             throw new DomainException(ErrorCode.ATTACHMENT_INVALID_FORMAT, "Arquivo de imagem inválido");
         }
+    }
+
+    /**
+     * Lê a tag EXIF Orientation (0x0112) do APP1 do JPEG. O ImageIO do JDK não
+     * aplica a orientação automaticamente; sem isso, fotos de celular podem
+     * aparecer giradas depois de removermos os metadados.
+     */
+    static int readOrientation(byte[] source) {
+        if (source.length < 4 || (source[0] & 0xFF) != 0xFF || (source[1] & 0xFF) != 0xD8) {
+            return 1;
+        }
+        int position = 2;
+        while (position + 4 <= source.length) {
+            if ((source[position] & 0xFF) != 0xFF) {
+                position++;
+                continue;
+            }
+            int marker = source[position + 1] & 0xFF;
+            if (marker == 0xD8 || marker == 0xD9) {
+                position += 2;
+                continue;
+            }
+            if (marker == 0xDA) {
+                return 1;
+            }
+            int length = ((source[position + 2] & 0xFF) << 8) | (source[position + 3] & 0xFF);
+            if (length < 2 || position + 2 + length > source.length) {
+                return 1;
+            }
+            if (marker == 0xE1 && length >= 8 && matchesAscii(source, position + 4, "Exif\0\0")) {
+                int orientation = parseTiffOrientation(source, position + 10, position + 2 + length);
+                return orientation >= 1 && orientation <= 8 ? orientation : 1;
+            }
+            position += 2 + length;
+        }
+        return 1;
+    }
+
+    private static int parseTiffOrientation(byte[] data, int tiffStart, int segmentEnd) {
+        if (tiffStart + 8 > segmentEnd) {
+            return 1;
+        }
+        boolean littleEndian;
+        if (data[tiffStart] == 'I' && data[tiffStart + 1] == 'I') {
+            littleEndian = true;
+        } else if (data[tiffStart] == 'M' && data[tiffStart + 1] == 'M') {
+            littleEndian = false;
+        } else {
+            return 1;
+        }
+        if (readU16(data, tiffStart + 2, littleEndian) != 42) {
+            return 1;
+        }
+        long ifdOffset = readU32(data, tiffStart + 4, littleEndian);
+        long ifd = tiffStart + ifdOffset;
+        if (ifd < tiffStart || ifd + 2 > segmentEnd) {
+            return 1;
+        }
+        int entries = readU16(data, (int) ifd, littleEndian);
+        int entryStart = (int) ifd + 2;
+        for (int index = 0; index < entries; index++) {
+            int entry = entryStart + index * 12;
+            if (entry + 12 > segmentEnd) {
+                return 1;
+            }
+            int tag = readU16(data, entry, littleEndian);
+            int type = readU16(data, entry + 2, littleEndian);
+            long count = readU32(data, entry + 4, littleEndian);
+            if (tag == 0x0112 && type == 3 && count == 1) {
+                long valueOffset = readU32(data, entry + 8, littleEndian);
+                int valueAddress = count * 2 <= 4 ? entry + 8 : (int) (tiffStart + valueOffset);
+                if (valueAddress + 2 > segmentEnd) {
+                    return 1;
+                }
+                return readU16(data, valueAddress, littleEndian);
+            }
+        }
+        return 1;
+    }
+
+    private static int readU16(byte[] data, int offset, boolean littleEndian) {
+        int first = data[offset] & 0xFF;
+        int second = data[offset + 1] & 0xFF;
+        return littleEndian ? (second << 8) | first : (first << 8) | second;
+    }
+
+    private static long readU32(byte[] data, int offset, boolean littleEndian) {
+        long first = data[offset] & 0xFFL;
+        long second = data[offset + 1] & 0xFFL;
+        long third = data[offset + 2] & 0xFFL;
+        long fourth = data[offset + 3] & 0xFFL;
+        return littleEndian
+                ? (fourth << 24) | (third << 16) | (second << 8) | first
+                : (first << 24) | (second << 16) | (third << 8) | fourth;
+    }
+
+    private static boolean matchesAscii(byte[] data, int offset, String value) {
+        if (offset + value.length() > data.length) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            if (data[offset + index] != (byte) value.charAt(index)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static BufferedImage applyOrientation(BufferedImage image, int orientation) {
+        if (orientation <= 1 || orientation > 8) {
+            return image;
+        }
+        int sourceWidth = image.getWidth();
+        int sourceHeight = image.getHeight();
+        boolean swap = orientation >= 5;
+        int targetWidth = swap ? sourceHeight : sourceWidth;
+        int targetHeight = swap ? sourceWidth : sourceHeight;
+        BufferedImage oriented = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = oriented.createGraphics();
+        try {
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, targetWidth, targetHeight);
+            graphics.drawImage(image, affineFor(orientation, sourceWidth, sourceHeight), null);
+        } finally {
+            graphics.dispose();
+        }
+        return oriented;
+    }
+
+    private static AffineTransform affineFor(int orientation, int width, int height) {
+        return switch (orientation) {
+            case 2 -> new AffineTransform(-1, 0, 0, 1, width, 0);
+            case 3 -> new AffineTransform(-1, 0, 0, -1, width, height);
+            case 4 -> new AffineTransform(1, 0, 0, -1, 0, height);
+            case 5 -> new AffineTransform(0, 1, 1, 0, 0, 0);
+            case 6 -> new AffineTransform(0, 1, -1, 0, height, 0);
+            case 7 -> new AffineTransform(0, -1, -1, 0, height, width);
+            case 8 -> new AffineTransform(0, -1, 1, 0, 0, width);
+            default -> new AffineTransform();
+        };
     }
 
     private static BufferedImage scale(BufferedImage image) {
