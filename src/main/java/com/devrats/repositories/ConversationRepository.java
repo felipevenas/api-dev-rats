@@ -1,6 +1,7 @@
 package com.devrats.repositories;
 
 import com.devrats.entities.ConversationEntity;
+import com.devrats.entities.GroupEntity;
 import com.devrats.enums.ConversationType;
 import com.devrats.enums.FriendshipStatus;
 import com.devrats.enums.GroupStatus;
@@ -63,7 +64,10 @@ public interface ConversationRepository extends JpaRepository<ConversationEntity
                 )
             ) or (
                 c.type = :group
-                and c.group.status = :activeGroup
+                and exists (
+                    select g.id from GroupEntity g
+                    where g.id = c.group.id and g.status = :activeGroup
+                )
                 and exists (
                     select gm.id from GroupMemberEntity gm
                     where gm.group.id = c.group.id
