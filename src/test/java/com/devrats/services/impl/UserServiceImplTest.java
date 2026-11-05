@@ -15,6 +15,7 @@ import com.devrats.services.RefreshTokenService;
 import com.devrats.services.storage.AvatarStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Clock;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -84,6 +86,17 @@ class UserServiceImplTest {
         verify(notificationRepository).deleteAllForUser(userId);
         verify(notificationRepository).deleteSocialByActor(userId.toString());
         verify(refreshTokenService).revokeAllForUser(userId);
+    }
+
+    @Test
+    void shouldGenerateNonCollidingDeletedUsername_whenAccountDeleted() {
+        service.deleteMe(userId, "senha");
+
+        ArgumentCaptor<UserEntity> captor = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getUsername())
+                .startsWith("deleted_")
+                .hasSize(30);
     }
 
     @Test

@@ -167,7 +167,8 @@ public class UserServiceImpl implements UserService {
             throw new UnauthorizedException(ErrorCode.INVALID_CREDENTIALS, "Senha inválida");
         }
         Instant now = clock.instant();
-        String suffix = user.getId().toString().substring(0, 8);
+        //---- 22 hex chars cabem em "deleted_" + 22 (limite 30) e reduzem colisão entre contas removidas.
+        String suffix = user.getId().toString().replace("-", "").substring(0, 22);
         String avatarObjectKey = user.getAvatarObjectKey();
         user.setStatus(UserStatus.DELETED);
         user.setEmail("deleted+" + user.getId() + "@invalid.local");
