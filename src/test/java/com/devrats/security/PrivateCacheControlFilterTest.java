@@ -19,6 +19,7 @@ class PrivateCacheControlFilterTest {
         assertThat(cacheControl("/api/v1/presence/heartbeat")).isEqualTo("no-store");
         assertThat(cacheControl("/api/v1/chat/conversations")).isEqualTo("no-store");
         assertThat(cacheControl("/api/v1/chat/attachments/abc/url")).isEqualTo("no-store");
+        assertThat(cacheControl("/api/v1/auth/password-reset/request")).isEqualTo("no-store");
     }
 
     @Test

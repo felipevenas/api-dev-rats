@@ -16,9 +16,10 @@ import java.util.List;
 /**
  * Marca respostas privadas do grafo social como {@code Cache-Control: no-store}.
  *
- * <p>Cobre {@code /api/v1/me}, {@code /api/v1/users}, {@code /api/v1/friends} e
- * {@code /api/v1/presence} — inclusive respostas de erro — para que proxies e o
- * browser não guardem perfil, export LGPD, presença ou solicitações.</p>
+ * <p>Cobre {@code /api/v1/me}, {@code /api/v1/users}, {@code /api/v1/friends},
+ * {@code /api/v1/presence}, {@code /api/v1/chat} e {@code /api/v1/auth} — inclusive
+ * respostas de erro — para que proxies e o browser não guardem perfil, export LGPD,
+ * presença, solicitações ou tokens de autenticação.</p>
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 15)
@@ -29,7 +30,8 @@ public class PrivateCacheControlFilter extends OncePerRequestFilter {
             "/api/v1/users",
             "/api/v1/friends",
             "/api/v1/presence",
-            "/api/v1/chat"
+            "/api/v1/chat",
+            "/api/v1/auth"
     );
 
     @Override
