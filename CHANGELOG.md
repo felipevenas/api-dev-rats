@@ -31,6 +31,8 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - **Segurança do chat**: autorização derivada de amizade `ACCEPTED`/membro `ACTIVE`, 404 para não participantes, rate limit por usuário, `Cache-Control: no-store` e logs sem conteúdo ou nome de arquivo.
 - **LGPD**: exportação inclui apenas mensagens enviadas pelo titular; exclusão de conta encerra sessões WebSocket e anonimiza o autor sem apagar o histórico dos demais.
 - **Operação**: métricas de sessões e mensagens, timeouts de upload/S3 e documentação do caminho de escala com Redis/RabbitMQ.
+- **Redefinição de senha por e-mail**: envio via Resend com modos `off`/`test`/`live`, link com token no fragmento, validade de 30 minutos, uso único, hash SHA-256, revogação de todas as sessões, cooldown por conta, auditoria e limpeza diária de tokens.
+- **Envio assíncrono após commit**: `@TransactionalEventListener` + executor limitado, com idempotência no Resend e métrica `email.send`.
 
 ### 🔧 Corrigido
 
@@ -41,6 +43,8 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Repositórios revogados deixam de contar em `repositoryCount` e contas desconectadas param de validar commits.
 - Sincronização de repositórios marca como revogados apenas os vínculos da instalação afetada.
 - Chamadas HTTP ao GitHub ficam fora das transações de banco no fluxo de integração.
+- Respostas de `/api/v1/auth/**` passam a usar `Cache-Control: no-store`.
+- Token de redefinição passa a expirar exatamente no limite da validade, sem aceitar o instante de expiração.
 
 ### 📝 Documentação
 
@@ -51,9 +55,12 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - `docs/PR-CHAT.md` consolida o corpo do PR, decisões e pontos de melhoria da feature.
 - `docs/DEPLOY-VPS.md` atualizado para o domínio `devrats.app`: DNS no Name.com, API em `api.devrats.app`, Caddy com TLS automático, rewrite da Vercel e `VITE_WS_URL` direto para o WebSocket.
 - `vercel.json` do frontend aponta o rewrite de `/api` para `https://api.devrats.app`; `index.html` usa canonical/OG em `https://devrats.app`.
+- `docs/EMAIL.md` documenta o Resend, os modos de envio, o DNS de `eufelipedesign.cloud`, o teste local e o runbook de produção.
+- README e `docs/DEPLOY-VPS.md` incluem as variáveis de e-mail, o remetente verificado e o checklist de validação.
 
 ### ⚠️ Limitações conhecidas
 
+- O envio de e-mail é assíncrono e não tem outbox: se o processo cair entre o commit e o envio, aquele e-mail se perde. O usuário pode solicitar outro link; o caminho de evolução com outbox está em `docs/EMAIL.md`.
 - O broker STOMP simples vive na memória de uma instância. Múltiplas réplicas exigem RabbitMQ (relay STOMP) ou uma ponte Pub/Sub com Redis.
 - Rate limit e presença continuam locais à instância; a migração para Redis está documentada como evolução.
 - Chat não tem criptografia ponta a ponta, push notification, edição/busca de mensagens, reações ou moderação de conteúdo.

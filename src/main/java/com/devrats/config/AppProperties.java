@@ -40,6 +40,8 @@ public class AppProperties {
     public static class Auth {
         //---- Local development only: returns the reset token in the response when no email provider exists.
         private boolean exposeResetToken = false;
+        private Duration resetTokenTtl = Duration.ofMinutes(30);
+        private Duration resetRequestCooldown = Duration.ofMinutes(1);
     }
 
     @Getter

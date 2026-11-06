@@ -166,6 +166,13 @@ Copie `.env.example` para `.env` e preencha os segredos. As principais variávei
 | `APP_CHAT_MAX_IMAGE_BYTES`, `APP_CHAT_MAX_VOICE_BYTES`, `APP_CHAT_MAX_FILE_BYTES` | Limites de upload por tipo |
 | `APP_CHAT_MESSAGES_PER_MINUTE`, `APP_CHAT_UPLOADS_PER_MINUTE` | Rate limit por usuário no chat |
 | `APP_CHAT_TYPING_THROTTLE`, `APP_CHAT_MAX_SESSIONS_PER_USER` | Throttle de digitação e limite de conexões WebSocket |
+| `RESEND_API_KEY` | Chave do Resend; sem ela o e-mail transacional fica desligado |
+| `EMAIL_MODE` | `off`, `test` ou `live` (padrão `off`) |
+| `EMAIL_FROM`, `EMAIL_REPLY_TO` | Remetente e resposta dos e-mails transacionais |
+| `EMAIL_TEST_RECIPIENT` | Destinatário único no modo `test` |
+| `EMAIL_TIMEOUT` | Timeout de leitura do Resend (padrão `PT10S`) |
+| `APP_AUTH_RESET_TOKEN_TTL` | Validade do link de redefinição (padrão `PT30M`) |
+| `APP_AUTH_RESET_REQUEST_COOLDOWN` | Intervalo mínimo entre pedidos da mesma conta (padrão `PT1M`) |
 
 Segredos nunca são versionados. O profile `local` precisa ser ativado explicitamente e `.env.example` contém apenas valores de exemplo.
 
@@ -183,6 +190,23 @@ O callback e o setup sempre redirecionam para `APP_FRONTEND_URL`: sucesso em `?g
 `?github=installed`, falha em `?github=error&reason=<codigo>`. Assim o usuário não fica preso em uma resposta JSON.
 
 Para desenvolvimento local, exponha a porta 8080 com `smee.io` ou `ngrok` e use a URL pública no webhook da GitHub App.
+
+## Recuperação de senha
+
+Dois endpoints públicos, sem autenticação:
+
+- `POST /api/v1/auth/password-reset/request` — sempre responde `202` com a mesma mensagem,
+  exista ou não a conta. Em `local`, o token também volta no campo `resetToken`.
+- `POST /api/v1/auth/password-reset/confirm` — valida o token de uso único, troca a senha e
+  revoga todas as sessões do usuário.
+
+O link é enviado por e-mail via **Resend** e usa o fragmento
+`https://devrats.app/reset-password#token=...`, que não é enviado ao servidor nem aparece em
+logs de proxy. O token tem 30 minutos de validade, hash SHA-256 no banco e só pode ser usado
+uma vez. O envio ocorre **depois do commit**, de forma assíncrona, então uma falha do provedor
+não desfaz o token nem revela se o e-mail existe.
+
+Configuração, modos (`off`/`test`/`live`), DNS e runbook: [`docs/EMAIL.md`](docs/EMAIL.md).
 
 ## API
 
@@ -306,7 +330,7 @@ O CI executa `./mvnw -B verify` em JDK 25 e publica o relatório do JaCoCo como 
 
 ## Limitações conhecidas do MVP
 
-- O envio de e-mail de recuperação de senha não está integrado. Em `local`, o token é devolvido na resposta (`app.auth.expose-reset-token=true`); em produção, conecte um provedor de e-mail antes de habilitar o fluxo.
+- O envio de e-mail é assíncrono e não tem outbox: se o processo cair entre o commit e o envio, aquele e-mail específico se perde; o usuário pode solicitar outro link. O caminho de evolução com outbox está em [`docs/EMAIL.md`](docs/EMAIL.md).
 - A validação real da GitHub App depende das credenciais e de uma URL pública de webhook (`smee.io`/`ngrok` em desenvolvimento). Sem elas, o status é `appConfigured=false`.
 - A reconciliação, os jobs agendados e o broker STOMP simples assumem uma única instância da API. Para múltiplas réplicas, adicione um lock distribuído (ShedLock/Redis) e um broker relay (RabbitMQ) ou uma ponte Redis Pub/Sub antes de escalar horizontalmente.
 - O chat v1 aceita um anexo por mensagem; criptografia ponta a ponta, push notification, busca/edição de mensagens, moderação e virus scanning ficam para evoluções.

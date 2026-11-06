@@ -7,4 +7,6 @@ public interface PasswordResetService {
     PasswordResetResponse requestReset(String email);
 
     void confirmReset(String token, String newPassword);
+
+    int purgeExpiredTokens();
 }

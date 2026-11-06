@@ -16,6 +16,8 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     Optional<PasswordResetTokenEntity> findByTokenHash(String tokenHash);
 
+    Optional<PasswordResetTokenEntity> findTopByUser_IdOrderByCreatedAtDesc(UUID userId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM PasswordResetTokenEntity t WHERE t.tokenHash = :tokenHash")
     Optional<PasswordResetTokenEntity> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);

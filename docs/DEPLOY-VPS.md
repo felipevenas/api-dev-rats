@@ -185,6 +185,14 @@ APP_FRONTEND_URL=https://devrats.app
 APP_CORS_ALLOWED_ORIGINS=https://devrats.app,https://www.devrats.app,https://devrats-web.vercel.app
 RATE_LIMIT_TRUST_FORWARDED_HEADERS=true
 SPRINGDOC_ENABLED=false
+# E-mail transacional (Resend) — domínio verificado: eufelipedesign.cloud
+RESEND_API_KEY=re_...
+EMAIL_MODE=live
+EMAIL_FROM=DevRats <nao-responda@eufelipedesign.cloud>
+EMAIL_REPLY_TO=<seu-email>
+EMAIL_TIMEOUT=PT10S
+APP_AUTH_RESET_TOKEN_TTL=PT30M
+APP_AUTH_RESET_REQUEST_COOLDOWN=PT1M
 # Chat: bucket privado de anexos (opcional; sem ele o texto funciona)
 APP_CHAT_STORAGE_BUCKET=
 APP_CHAT_STORAGE_KEY_PREFIX=chat
@@ -253,6 +261,30 @@ receber mensagens:
   pelo provedor.
 
 Sem isso, o link `mailto:` abre o cliente de e-mail do usuário, mas a mensagem não chega a uma caixa do domínio.
+
+### E-mails transacionais (Resend)
+
+O domínio **`eufelipedesign.cloud`** está verificado no Resend (`sa-east-1`) e é o remetente
+do fluxo de redefinição de senha. O envio usa o modo `live` em produção; o remetente padrão é
+`DevRats <nao-responda@eufelipedesign.cloud>`.
+
+1. Adicione as variáveis de e-mail no `/opt/devstreak/.env` (bloco acima).
+2. Recrie o container:
+   ```bash
+   cd /opt/devstreak && docker compose up -d --force-recreate
+   ```
+3. Confirme que o processo recebeu a configuração:
+   ```bash
+   docker exec devstreak_api printenv EMAIL_MODE EMAIL_FROM
+   ```
+4. Solicite uma redefinição para uma conta real e confira:
+   - resposta `202` com a mensagem genérica;
+   - e-mail entregue no painel do Resend (**Emails → delivered**);
+   - link abrindo `https://devrats.app/reset-password#token=...`;
+   - troca de senha e login com a nova senha.
+
+Para validar antes de abrir ao público, use `EMAIL_MODE=test` e `EMAIL_TEST_RECIPIENT=<seu-email>`.
+O runbook completo, DNS e troubleshooting estão em [`EMAIL.md`](EMAIL.md).
 
 ## GitHub App
 
