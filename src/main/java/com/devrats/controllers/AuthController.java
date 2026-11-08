@@ -12,6 +12,7 @@ import com.devrats.exceptions.ForbiddenException;
 import com.devrats.exceptions.UnauthorizedException;
 import com.devrats.services.AuthService;
 import com.devrats.services.AuthSession;
+import com.devrats.services.security.TurnstileVerifier;
 import com.devrats.utils.OriginHelper;
 import com.devrats.utils.RefreshCookieHelper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,17 +34,23 @@ public class AuthController {
     private final AuthService authService;
     private final JwtProperties jwtProperties;
     private final AppProperties appProperties;
+    private final TurnstileVerifier turnstileVerifier;
 
-    public AuthController(AuthService authService, JwtProperties jwtProperties, AppProperties appProperties) {
+    public AuthController(AuthService authService, JwtProperties jwtProperties, AppProperties appProperties,
+                          TurnstileVerifier turnstileVerifier) {
         this.authService = authService;
         this.jwtProperties = jwtProperties;
         this.appProperties = appProperties;
+        this.turnstileVerifier = turnstileVerifier;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request,
-                                                 HttpServletRequest httpRequest) {
+    public ResponseEntity<AuthResponse> register(
+            @Valid @RequestBody RegisterRequest request,
+            @RequestHeader(name = "X-Turnstile-Token", required = false) String turnstileToken,
+            HttpServletRequest httpRequest) {
         requireTrustedOrigin(httpRequest);
+        turnstileVerifier.verify(turnstileToken, httpRequest.getRemoteAddr());
         AuthSession session = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, cookie(session.refreshToken()).toString())
@@ -50,9 +58,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
-                                              HttpServletRequest httpRequest) {
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            @RequestHeader(name = "X-Turnstile-Token", required = false) String turnstileToken,
+            HttpServletRequest httpRequest) {
         requireTrustedOrigin(httpRequest);
+        turnstileVerifier.verify(turnstileToken, httpRequest.getRemoteAddr());
         AuthSession session = authService.login(request);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie(session.refreshToken()).toString())
@@ -89,7 +100,10 @@ public class AuthController {
 
     @PostMapping("/password-reset/request")
     public ResponseEntity<PasswordResetResponse> requestPasswordReset(
-            @Valid @RequestBody PasswordResetRequest request) {
+            @Valid @RequestBody PasswordResetRequest request,
+            @RequestHeader(name = "X-Turnstile-Token", required = false) String turnstileToken,
+            HttpServletRequest httpRequest) {
+        turnstileVerifier.verify(turnstileToken, httpRequest.getRemoteAddr());
         return ResponseEntity.accepted().body(authService.requestPasswordReset(request.email()));
     }
 

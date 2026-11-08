@@ -99,7 +99,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(properties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id", "Idempotency-Key"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id",
+                "Idempotency-Key", "X-Turnstile-Token"));
         configuration.setExposedHeaders(List.of("X-Request-Id", "Retry-After"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
