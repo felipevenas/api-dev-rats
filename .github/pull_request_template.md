@@ -1,41 +1,41 @@
-# Descrição do Pull Request
+# Pull Request Description
 
-Inclua um resumo das alterações, o problema ou funcionalidade abordada e o impacto esperado no contrato da API, na segurança e nos dados.
+Include a summary of the changes, the problem or feature addressed, and the expected impact on the API contract, security, and data.
 
 ---
 
-## Tipo de Alteração
+## Type of Change
 
-- [ ] 🚀 Nova funcionalidade (`feature`)
-- [ ] 🐞 Correção de bug (`bug fix`)
-- [ ] 🔧 Refatoração sem alteração funcional (`refactor`)
-- [ ] 📝 Documentação (`docs`)
-- [ ] 🎨 Estilo / formatação (`style`)
-- [ ] ⚙️ Infraestrutura, CI/CD, dependências ou migrations (`chore`)
-- [ ] 🔒 Segurança ou privacidade (`security`)
+- [ ] 🚀 New feature (`feature`)
+- [ ] 🐞 Bug fix (`bug fix`)
+- [ ] 🔧 Refactoring with no functional change (`refactor`)
+- [ ] 📝 Documentation (`docs`)
+- [ ] 🎨 Style / formatting (`style`)
+- [ ] ⚙️ Infrastructure, CI/CD, dependencies, or migrations (`chore`)
+- [ ] 🔒 Security or privacy (`security`)
 
-## Como foi testado?
+## How Was It Tested?
 
-Descreva as validações executadas e como reproduzir no ambiente local.
+Describe the validations performed and how to reproduce them locally.
 
-- [ ] **Build e testes:** executei `.\mvnw.cmd verify` e todos os testes passaram.
-- [ ] **Testcontainers:** os testes de integração rodaram com Docker em execução.
-- [ ] **ArchUnit:** nenhuma violação de camada ou convenção foi introduzida.
-- [ ] **Migration Flyway:** criei e apliquei a migration necessária (quando aplicável).
-- [ ] **Swagger / Contrato:** validei os endpoints alterados em `http://localhost:8080/swagger-ui.html`.
-- [ ] **Autorização:** validei que o recurso exige autenticação e as permissões corretas.
-- [ ] **Concorrência / idempotência:** validei os fluxos afetados quando aplicável.
-- [ ] Outros testes executados:
+- [ ] **Build and tests:** ran `.\mvnw.cmd verify` and all tests passed.
+- [ ] **Testcontainers:** integration tests ran with Docker running.
+- [ ] **ArchUnit:** no layer or convention violations were introduced.
+- [ ] **Flyway migration:** created and applied the required migration (when applicable).
+- [ ] **Swagger / Contract:** validated the changed endpoints at `http://localhost:8080/swagger-ui.html`.
+- [ ] **Authorization:** verified that the resource requires authentication and the correct permissions.
+- [ ] **Concurrency / idempotency:** validated the affected flows when applicable.
+- [ ] Other tests performed:
 
-## Evidência Visual / Logs
+## Visual Evidence / Logs
 
-*Se aplicável, cole logs relevantes, capturas do Swagger ou do fluxo validado.*
+*If applicable, paste relevant logs, Swagger screenshots, or evidence of the validated flow.*
 
 ## Checklist
 
-- [ ] Meu código segue [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) e as camadas do projeto.
-- [ ] Fiz auto-revisão e removi código morto ou experimental.
-- [ ] Adicionei ou atualizei testes para cobrir o comportamento alterado.
-- [ ] Atualizei o [`CHANGELOG.md`](CHANGELOG.md) quando a mudança for relevante ao usuário.
-- [ ] Não versionei segredos, tokens, `.env` ou dados de repositórios privados.
-- [ ] Atualizei a documentação e o contrato da API quando necessário.
+- [ ] My code follows [`docs/CONVENTIONS.md`](https://github.com/felipevenas/api-dev-rats/blob/main/docs/CONVENTIONS.md) and the project layers.
+- [ ] I self-reviewed and removed dead or experimental code.
+- [ ] I added or updated tests to cover the changed behavior.
+- [ ] I updated [`CHANGELOG.md`](https://github.com/felipevenas/api-dev-rats/blob/main/CHANGELOG.md) when the change is relevant to users.
+- [ ] I did not commit secrets, tokens, `.env`, or private repository data.
+- [ ] I updated documentation and the API contract when necessary.

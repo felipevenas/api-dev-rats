@@ -2,7 +2,7 @@
 
 # DevRats API ⚙️
 
-**API Java/Spring Boot do DevRats — desafios privados de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos, ranking, sequências e definição atômica de vencedor.**
+**Backend for DevRats — private consistency challenges for developers, with automatic GitHub commit verification, groups, rankings, streaks, and atomic winner resolution.**
 
 [![CI](https://github.com/felipevenas/api-dev-rats/actions/workflows/ci.yml/badge.svg)](https://github.com/felipevenas/api-dev-rats/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-25-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
@@ -16,206 +16,437 @@
 <br />
 
 <p align="center">
-  <a href="#stack"><b>Stack</b></a> •
-  <a href="#arquitetura"><b>Arquitetura</b></a> •
-  <a href="#como-rodar"><b>Executar Local</b></a> •
-  <a href="#configuração"><b>Configuração</b></a> •
-  <a href="#api"><b>API</b></a> •
-  <a href="#testes"><b>Testes</b></a> •
-  <a href="#-governança-e-comunidade"><b>Governança</b></a>
+  <a href="#overview"><b>Overview</b></a> •
+  <a href="#architecture"><b>Architecture</b></a> •
+  <a href="#quick-start"><b>Quick Start</b></a> •
+  <a href="#configuration"><b>Configuration</b></a> •
+  <a href="#github-app"><b>GitHub App</b></a> •
+  <a href="#api-surface"><b>API</b></a> •
+  <a href="#testing"><b>Testing</b></a> •
+  <a href="#known-limitations-mvp-trade-offs"><b>Limitations</b></a> •
+  <a href="#governance"><b>Governance</b></a>
 </p>
 
 </div>
 
 ---
 
-API Java/Spring Boot do **DevRats**: desafios de constância para desenvolvedores, com verificação automática de commits no GitHub, grupos privados, ranking, sequências e definição atômica de vencedor.
+> **Frontend repository:** [felipevenas/webapp-dev-rats](https://github.com/felipevenas/webapp-dev-rats) ·
+> **Live product:** [devrats.app](https://devrats.app) ·
+> **Public API:** [api.devrats.app](https://api.devrats.app)
 
-Este repositório contém **somente o backend**. O frontend React está em [`../webapp-dev-rats`](../webapp-dev-rats).
+## Overview
 
-## Stack
+DevRats rewards **showing up**, not finishing a course. A group creates a private challenge with a target number of valid days. The API watches the participants' GitHub repositories, verifies eligible commits, projects them into daily activity, and declares a winner when the target is reached.
 
-- Java 25 LTS
-- Spring Boot 4.1.2 (Web MVC, Security, Data JPA, Validation, Actuator, WebSocket/STOMP)
-- PostgreSQL 17 + Flyway
-- Maven Wrapper
-- Spring Security JWT (HS256) + refresh token rotativo em cookie HttpOnly
-- Caffeine, Bucket4j, springdoc OpenAPI
-- JUnit 5, AssertJ, Mockito, Testcontainers, WireMock, ArchUnit e JaCoCo
+This repository contains **only the backend**. The React frontend lives in [`webapp-dev-rats`](https://github.com/felipevenas/webapp-dev-rats).
 
-## Arquitetura
+### What this service owns
 
-O projeto segue a organização em camadas do projeto de referência `money-flow`:
+| Area | Responsibility |
+|---|---|
+| Identity | Registration, login, rotating refresh tokens, profile, LGPD export/deletion |
+| GitHub integration | GitHub App OAuth, installation sync, repository catalog, signed webhooks |
+| Challenges | Group lifecycle, invitation links, challenge draft/start/cancel, repository binding |
+| Verification | Commit eligibility policy, timezone-aware day projection, idempotent reconciliation |
+| Results | Leaderboard, streaks, activity calendar, atomic winner selection and audit trail |
+| Social | Friendships, presence, notifications, group and private real-time chat |
+
+### Core capabilities
+
+- Java 25 and Spring Boot 4.1 with Web MVC, Security, Data JPA, Validation, Actuator, and WebSocket/STOMP.
+- PostgreSQL 17 with Flyway-owned schema and Hibernate `validate` mode.
+- JWT HS256 access tokens plus rotating refresh tokens in an `HttpOnly`, `SameSite=Strict` cookie.
+- GitHub App integration with HMAC-verified webhooks and encrypted token storage (AES-256-GCM).
+- Idempotency enforced by database constraints across webhooks, commits, and daily activity.
+- RFC 9457 (`application/problem+json`) error responses with `code`, `detail`, and `traceId`.
+- Caffeine, Bucket4j rate limiting, springdoc OpenAPI, Micrometer, and Prometheus metrics.
+- JUnit 5, AssertJ, Mockito, Testcontainers, WireMock, ArchUnit, and JaCoCo.
+
+## Architecture
+
+The codebase follows a conventional layered architecture. Controllers translate HTTP; services own use cases and transactions; repositories own persistence.
 
 ```text
 src/main/java/com/devrats/
-├── config/           configuração de segurança, propriedades, cache, OpenAPI
-├── controllers/      endpoints HTTP e tratamento global de erros
-├── dto/              requests, responses e paginação
-├── entities/         entidades JPA
-├── enums/            estados e tipos do domínio
-├── exceptions/       exceções e códigos de erro
-├── repositories/     Spring Data JPA
-├── security/         filtros de trace e rate limit, escrita de erros de segurança
-├── services/         contratos de caso de uso
-├── services/impl/    implementações transacionais
-├── services/github/  cliente e autenticação da GitHub App
-├── services/activity/ elegibilidade, processamento de webhook e reconciliação
-├── services/chat/    políticas de anexo, eventos e publicação STOMP
-└── utils/            helpers puros e utilitários de segurança
+├── config/            security, properties, cache, OpenAPI, WebSocket configuration
+├── controllers/       HTTP endpoints and global error handling
+├── dto/               requests, responses, pagination
+├── entities/          JPA entities
+├── enums/             domain states and types
+├── exceptions/        exceptions and error codes
+├── repositories/      Spring Data JPA
+├── security/          trace and rate-limit filters, security error writer
+├── services/          use-case contracts
+├── services/impl/     transactional implementations
+├── services/github/   GitHub App client and authentication
+├── services/activity/ eligibility, webhook processing, reconciliation
+├── services/chat/     attachment policy, events, STOMP publishing
+└── utils/             pure helpers and security utilities
 ```
 
-As convenções de nomes, comentários e helpers estão em [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
+Naming, comments, and helper conventions are documented in [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
 
-### Principais decisões
+### Domain model: groups and challenges
 
-- **`groups` e `challenges` são entidades separadas.** O grupo guarda identidade e participantes; o desafio guarda modalidade, meta, fuso, estado e resultado. Isso preserva o histórico quando um novo desafio é criado.
-- **Um desafio aberto por grupo** é garantido por índice único parcial (`DRAFT`/`ACTIVE`).
-- **Um dia válido por participante/desafio/data** é garantido por constraint única. Vários commits no mesmo dia incrementam apenas o contador interno, nunca os dias válidos.
-- **Vitória atômica:** a linha do desafio é travada com `FOR UPDATE`, o vencedor é escolhido entre todos os participantes que atingiram a meta e `challenge_results.challenge_id` é único.
-- **Idempotência em três camadas:** `github_events.delivery_id`, `eligible_commits (repository, sha)` e `member_daily_activity (challenge, participant, date)`.
-- **Fuso do desafio é fixo.** `committed_at` é armazenado em UTC e convertido para o fuso do desafio ao calcular o dia.
-- **Elegibilidade rigorosa:** autoria pelo ID numérico do GitHub, sem bots, commits vazios ou merge commits; forks não contam por padrão; no modo `OWN_REPOSITORIES` o repositório precisa pertencer à conta pessoal do participante.
-- **Segredos e tokens:** tokens do GitHub são armazenados cifrados com AES-256-GCM e nunca retornados ao cliente.
+**Groups** and **challenges** are intentionally separate entities:
 
-## Como rodar
+- A **group** owns identity, membership, invitations, and the long-lived social context. It survives multiple challenge cycles.
+- A **challenge** owns the current modality, target, timezone, window, status, repositories, progress, and result.
 
-### Pré-requisitos
+This separation preserves history: when a challenge completes, the group can start a new one without rewriting or deleting the previous result. The schema also keeps `challenge_participants`, `member_daily_activity`, and `challenge_results` tied to a specific challenge, so every cycle remains auditable.
 
-- JDK 25 (Temurin recomendado)
-- Docker Desktop
-- Git
+```mermaid
+erDiagram
+    USERS ||--o{ GROUP_MEMBERS : joins
+    GROUPS ||--o{ GROUP_MEMBERS : has
+    GROUPS ||--o{ GROUP_INVITES : issues
+    GROUPS ||--o{ CHALLENGES : runs
+    CHALLENGES ||--o{ CHALLENGE_PARTICIPANTS : includes
+    CHALLENGES ||--o{ CHALLENGE_REPOSITORIES : tracks
+    CHALLENGES ||--o{ MEMBER_DAILY_ACTIVITY : records
+    CHALLENGES ||--o| CHALLENGE_RESULTS : produces
+    USERS ||--o{ CHALLENGE_PARTICIPANTS : competes
+```
 
-Instalação do JDK no Windows:
+### Request and verification flow
+
+```mermaid
+flowchart LR
+    GH[GitHub App] -->|signed webhook| WH[Webhook ingestion]
+    WH -->|delivery_id unique| EV[(github_events)]
+    EV --> EL[Eligibility policy]
+    EL -->|repository + sha unique| CM[(eligible_commits)]
+    CM --> DA[Daily activity projection]
+    DA -->|challenge + participant + date unique| ACT[(member_daily_activity)]
+    ACT --> CC[Challenge completion]
+    CC -->|FOR UPDATE on challenge row| CH[(challenges)]
+    CC -->|challenge_id unique| RES[(challenge_results)]
+```
+
+### Technical decisions
+
+#### 1. At most one open challenge per group
+
+A partial unique index guarantees the invariant at the database level:
+
+```sql
+CREATE UNIQUE INDEX uq_challenges_group_open
+    ON challenges (group_id)
+    WHERE status IN ('DRAFT', 'ACTIVE');
+```
+
+This prevents two concurrent requests from creating a second open challenge for the same group. Older challenges remain in `COMPLETED`, `CANCELLED`, or `EXPIRED` state and keep their full history.
+
+#### 2. Atomic victory with a pessimistic lock
+
+Winner resolution is serialized per challenge in [`ChallengeCompletionServiceImpl`](src/main/java/com/devrats/services/impl/ChallengeCompletionServiceImpl.java):
+
+1. `ChallengeRepository.findByIdForUpdate` uses `@Lock(LockModeType.PESSIMISTIC_WRITE)`, which emits `SELECT ... FOR UPDATE` on PostgreSQL.
+2. The service re-checks that the challenge is still `ACTIVE` and has no result.
+3. It loads every participant who reached the target, orders candidates by achievement time, join time, and participant ID, and records exactly one winner.
+4. `challenge_results.challenge_id` has a unique constraint (`uq_challenge_results_challenge`), so even a logic bug cannot persist two winners for the same challenge.
+
+The lock is held only for the local transaction — never during an outbound GitHub HTTP call.
+
+#### 3. Idempotency in three layers
+
+Idempotency is enforced by **database constraints**, not by `if (exists)` checks. Each layer protects a different kind of duplicate delivery:
+
+| Layer | Unique key | Protects against | Behavior on duplicate |
+|---|---|---|---|
+| Webhook delivery | `github_events.delivery_id` | GitHub retries the same event (`X-GitHub-Delivery`) | Event is stored once; the replay is ignored |
+| Observed commit | `eligible_commits (github_repository_id, commit_sha)` | The same commit arriving via webhook **and** reconciliation | Commit metadata is written once |
+| Daily activity | `member_daily_activity (challenge_id, participant_id, activity_date)` | Multiple eligible commits on the same local day | Existing row increments `valid_commit_count`; valid days do **not** double-count |
+
+#### 4. Challenge timezone is fixed
+
+Commit timestamps are stored in UTC (`TIMESTAMPTZ`). Each challenge carries a fixed IANA timezone, and the API converts `committed_at` to that zone before deriving the activity date. A participant cannot change the challenge timezone mid-cycle to gain an extra day.
+
+#### 5. Strict commit eligibility
+
+- Authorship is verified by the **numeric GitHub user ID**, never by commit name or e-mail.
+- Bots, empty commits, and merge commits do not count.
+- Forks do not count by default (`allow_forks=false`).
+- Commits older than 48 hours (configurable via `APP_CHALLENGES_MAX_COMMIT_AGE`) are rejected.
+- `SELECTED_REPOSITORIES` requires the repository to be explicitly linked to the challenge (maximum of 3).
+- `OWN_REPOSITORIES` requires the repository to belong to the participant's personal account.
+- Missed events are recovered by a periodic, idempotent reconciliation job.
+
+#### 6. Secrets at rest
+
+GitHub tokens are encrypted with **AES-256-GCM** using `TOKEN_ENCRYPTION_KEY` and a key version (`TOKEN_ENCRYPTION_KEY_ID`). Tokens are never returned to clients, logged, or included in error responses. Refresh tokens are stored as hashes and rotated on every use.
+
+## Quick Start
+
+### Prerequisites
+
+- **JDK 25** (Temurin recommended)
+- **Docker Desktop** (PostgreSQL locally and Testcontainers for integration tests)
+- **Git**
+- **Maven Wrapper** (already committed)
+
+Installing JDK 25 on Windows:
 
 ```powershell
 winget install --id EclipseAdoptium.Temurin.25.JDK --exact
 ```
 
-### Banco local
+### 1. Clone and prepare the environment
+
+```powershell
+git clone https://github.com/felipevenas/api-dev-rats.git
+cd api-dev-rats
+Copy-Item .env.example .env
+```
+
+`.env` contains development placeholders only. Never commit real secrets.
+
+### 2. Start PostgreSQL
 
 ```powershell
 docker compose up -d postgres
 ```
 
-O PostgreSQL fica exposto em `localhost:55432` (porta escolhida para evitar conflito com instâncias locais).
+PostgreSQL is exposed on `localhost:55432` to avoid conflicts with local installations.
 
-### Aplicação
+### 3. Run the API with the `local` profile
 
-Copie `.env.example` para `.env` (o Spring lê esse arquivo) e rode:
+The `local` profile is **mandatory**. Without `SPRING_PROFILES_ACTIVE=local`, the application has no datasource or development secrets and will not boot. This fail-fast behavior prevents production from accidentally starting with development defaults.
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'local'
+.\mvnw.cmd spring-boot:run
+```
+
+Or use the wrapper script, which also resolves the JDK path:
 
 ```powershell
 .\run-local.ps1
 ```
 
-Ou, manualmente:
+On macOS/Linux:
 
-```powershell
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-25.0.5.8-hotspot'
-$env:SPRING_PROFILES_ACTIVE='local'
-.\mvnw.cmd spring-boot:run
+```bash
+export SPRING_PROFILES_ACTIVE=local
+./mvnw spring-boot:run
 ```
 
-Sem `SPRING_PROFILES_ACTIVE` a aplicação não sobe: isso evita que segredos de desenvolvimento sejam usados por acidente em produção.
+The API starts at `http://localhost:8080`.
 
-A API sobe em `http://localhost:8080`.
+When running the companion frontend on `:5174`, also set:
 
-- Health: `GET /actuator/health`
-- OpenAPI: `GET /v3/api-docs`
-- Swagger UI: `GET /swagger-ui.html`
+```powershell
+$env:APP_FRONTEND_URL = 'http://localhost:5174'
+$env:APP_CORS_ALLOWED_ORIGINS = 'http://localhost:5173,http://localhost:5174'
+```
 
-### Build e testes
+The frontend origin must be present in both variables for GitHub OAuth redirects and refresh/logout requests to work.
+
+| Endpoint | URL |
+|---|---|
+| Health | `GET /actuator/health` |
+| OpenAPI JSON | `GET /v3/api-docs` |
+| Swagger UI | `GET /swagger-ui.html` |
+| Metrics | `GET /actuator/prometheus` |
+
+### 4. Build and test
 
 ```powershell
 .\mvnw.cmd verify
 ```
 
-Os testes de integração usam Testcontainers; o Docker precisa estar rodando. O relatório de cobertura fica em `target/site/jacoco/index.html`.
+Integration tests use Testcontainers, so Docker must be running. The coverage report is generated at `target/site/jacoco/index.html`.
 
-### Docker
+### 5. Run the full Docker stack (optional)
 
 ```powershell
 docker compose --profile full up --build
 ```
 
-## Configuração
+The `full` profile starts PostgreSQL plus the API container.
 
-Copie `.env.example` para `.env` e preencha os segredos. As principais variáveis:
+## Configuration
 
-| Variável | Uso |
-|---|---|
-| `DB_URL`, `DB_USER`, `DB_PASS` | Conexão PostgreSQL |
-| `JWT_SECRET` | Chave HMAC de 32+ bytes em base64 |
-| `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL` | Duração do access token e do refresh token |
-| `TOKEN_ENCRYPTION_KEY` | Chave AES-256-GCM de 32 bytes em base64 |
-| `GITHUB_APP_ID` | ID numérico da GitHub App |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | OAuth da GitHub App |
-| `GITHUB_PRIVATE_KEY` | PEM PKCS#1/PKCS#8 da GitHub App ou PKCS#8 em base64 |
-| `GITHUB_WEBHOOK_SECRET` | Segredo do webhook |
-| `GITHUB_APP_SLUG` | Slug usado na URL de instalação |
-| `GITHUB_CALLBACK_URL` | Callback OAuth registrado na GitHub App |
-| `GITHUB_SETUP_URL` | Setup URL registrada na GitHub App |
-| `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas, separadas por vírgula |
-| `APP_FRONTEND_URL` | URL usada nos redirects OAuth |
-| `APP_FRIENDS_MAX_PER_USER`, `APP_FRIENDS_MAX_PENDING_OUTGOING` | Limite de amigos e de solicitações pendentes por usuário |
-| `APP_FRIENDS_DECLINED_COOLDOWN` | Janela de bloqueio do par após uma recusa (padrão `PT72H`) |
-| `APP_PRESENCE_ONLINE_WINDOW`, `APP_PRESENCE_AWAY_WINDOW` | Janelas de presença (padrão `PT2M` e `PT10M`) |
-| `APP_SOCIAL_SEARCH_PER_MINUTE`, `APP_SOCIAL_FRIEND_REQUEST_PER_HOUR` | Limite por usuário na busca e no envio de solicitações |
-| `APP_CHAT_STORAGE_BUCKET`, `APP_CHAT_STORAGE_KEY_PREFIX` | Bucket privado e prefixo dos anexos de chat |
-| `APP_CHAT_ATTACHMENT_URL_TTL` | Validade da URL assinada de download (padrão `PT15M`) |
-| `APP_CHAT_MAX_IMAGE_BYTES`, `APP_CHAT_MAX_VOICE_BYTES`, `APP_CHAT_MAX_FILE_BYTES` | Limites de upload por tipo |
-| `APP_CHAT_MESSAGES_PER_MINUTE`, `APP_CHAT_UPLOADS_PER_MINUTE` | Rate limit por usuário no chat |
-| `APP_CHAT_TYPING_THROTTLE`, `APP_CHAT_MAX_SESSIONS_PER_USER` | Throttle de digitação e limite de conexões WebSocket |
-| `RESEND_API_KEY` | Chave do Resend; sem ela o e-mail transacional fica desligado |
-| `EMAIL_MODE` | `off`, `test` ou `live` (padrão `off`) |
-| `EMAIL_FROM`, `EMAIL_REPLY_TO` | Remetente e resposta dos e-mails transacionais |
-| `EMAIL_TEST_RECIPIENT` | Destinatário único no modo `test` |
-| `EMAIL_TIMEOUT` | Timeout de leitura do Resend (padrão `PT10S`) |
-| `APP_AUTH_RESET_TOKEN_TTL` | Validade do link de redefinição (padrão `PT30M`) |
-| `APP_AUTH_RESET_REQUEST_COOLDOWN` | Intervalo mínimo entre pedidos da mesma conta (padrão `PT1M`) |
+Spring Boot reads `.env` through `spring.config.import=optional:file:.env[.properties]`. Values below mirror [`.env.example`](.env.example); replace every example secret before using a shared environment.
 
-Segredos nunca são versionados. O profile `local` precisa ser ativado explicitamente e `.env.example` contém apenas valores de exemplo.
+### Runtime and profiles
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | **Yes** | `local` | Activates `application-local.properties` or `application-prod.properties`. The app refuses to boot without a usable profile. |
+| `JAVA_HOME` | No | JDK 25 path | Used by `run-local.ps1`; Maven can also resolve Java from `PATH`. |
+| `AUTH_COOKIE_SECURE` | Prod | `false` (local) / `true` (prod) | Adds the `Secure` flag to the refresh cookie. Must be `true` behind HTTPS. |
+| `AUTH_EXPOSE_RESET_TOKEN` | Local only | `true` (local) / `false` (prod) | Returns the password-reset token in the API response. **Never enable in production.** |
+| `SPRINGDOC_ENABLED` | No | `false` (prod) | Enables OpenAPI/Swagger in the `prod` profile. |
+| `JWT_AUDIENCE` | No | `devrats-web` | Expected JWT audience. |
+
+### PostgreSQL
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `DB_URL` | **Yes** | `jdbc:postgresql://localhost:55432/devstreak` | JDBC connection string. |
+| `DB_USER` | **Yes** | `devstreak` | Database user. |
+| `DB_PASS` | **Yes** | `devstreak` | Database password. |
+
+Flyway runs automatically on startup. Hibernate only validates the schema; migrations are the source of truth.
+
+### JWT
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `JWT_SECRET` | **Yes** | base64-encoded 32-byte example | HMAC key for access tokens. Generate with `openssl rand -base64 32`. |
+| `JWT_ISSUER` | No | `devrats-api` | JWT `iss` claim. |
+| `JWT_ACCESS_TTL` | No | `PT15M` | Access-token lifetime (ISO-8601 duration). |
+| `JWT_REFRESH_TTL` | No | `P30D` | Refresh-token lifetime. |
+
+### Token encryption (AES-256-GCM)
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `TOKEN_ENCRYPTION_KEY` | **Yes** | base64-encoded 32-byte example | Encrypts GitHub access/refresh tokens at rest. Generate with `openssl rand -base64 32`. |
+| `TOKEN_ENCRYPTION_KEY_ID` | No | `1` | Key version recorded with each ciphertext to support rotation. |
+
+### GitHub App
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `GITHUB_APP_ID` | **Yes** for GitHub | — | Numeric GitHub App ID. |
+| `GITHUB_CLIENT_ID` | **Yes** for GitHub | — | OAuth client ID of the GitHub App. |
+| `GITHUB_CLIENT_SECRET` | **Yes** for GitHub | — | OAuth client secret. |
+| `GITHUB_PRIVATE_KEY` | **Yes** for GitHub | — | PEM private key (PKCS#1/PKCS#8), or PKCS#8 base64. |
+| `GITHUB_WEBHOOK_SECRET` | **Yes** for webhooks | `dev-webhook-secret` (local) | Shared secret used to validate `X-Hub-Signature-256`. |
+| `GITHUB_APP_SLUG` | No | `devrats` | Slug used in the installation URL. |
+| `GITHUB_CALLBACK_URL` | No | `http://localhost:8080/api/v1/integrations/github/callback` | OAuth callback registered in the GitHub App. |
+| `GITHUB_SETUP_URL` | No | `http://localhost:8080/api/v1/integrations/github/setup` | Setup URL registered in the GitHub App. |
+
+Without GitHub credentials the API still boots; the integration reports `appConfigured=false` and GitHub-dependent flows remain unavailable.
+
+### CORS and frontend
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `APP_CORS_ALLOWED_ORIGINS` | **Yes** | `http://localhost:5173` | Comma-separated allowed origins. Include every frontend origin, including `http://localhost:5174`. |
+| `APP_FRONTEND_URL` | **Yes** | `http://localhost:5173` | Origin used by OAuth redirects after GitHub callback/setup. |
+
+The refresh cookie is `SameSite=Strict` and scoped to `/api/v1/auth`. In production, the frontend and API must be same-site (subdomains or a same-origin proxy such as the Vercel rewrite).
+
+### S3-compatible storage — avatars
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `APP_STORAGE_ENDPOINT` | No | — | Custom endpoint for R2/MinIO. Leave empty for AWS S3. |
+| `APP_STORAGE_REGION` | No | `auto` | Bucket region. |
+| `APP_STORAGE_BUCKET` | For avatars | — | Bucket used for avatars. |
+| `APP_STORAGE_ACCESS_KEY` | For avatars | — | Access key ID (also used by chat uploads). |
+| `APP_STORAGE_SECRET_KEY` | For avatars | — | Secret access key (also used by chat uploads). |
+| `APP_STORAGE_PUBLIC_BASE_URL` | For avatars | — | Public base URL used to build avatar URLs (CDN/custom domain). |
+| `APP_STORAGE_KEY_PREFIX` | No | `avatars` | Object key prefix. |
+| `APP_STORAGE_MAX_AVATAR_BYTES` | No | `2097152` | Maximum avatar size (2 MB). |
+
+Avatar upload requires the bucket, credentials, **and** `APP_STORAGE_PUBLIC_BASE_URL`. If any of them is missing, avatar upload is disabled and the app falls back to the GitHub avatar or initials.
+
+### S3-compatible storage — chat attachments
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `APP_CHAT_STORAGE_BUCKET` | For chat uploads | — | **Private** bucket for images, voice notes, and documents. Without it, text chat works and uploads return `503`. |
+| `APP_CHAT_STORAGE_KEY_PREFIX` | No | `chat` | Object key prefix. |
+| `APP_CHAT_ATTACHMENT_URL_TTL` | No | `PT15M` | Lifetime of presigned download URLs. |
+
+Chat uploads require `APP_CHAT_STORAGE_BUCKET` plus `APP_STORAGE_ACCESS_KEY` and `APP_STORAGE_SECRET_KEY`.
+
+### Chat limits and rate limits
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `APP_CHAT_MAX_TEXT_CHARS` | No | `2000` | Maximum text message length. |
+| `APP_CHAT_MAX_IMAGE_BYTES` | No | `8388608` | Maximum image size (8 MB). |
+| `APP_CHAT_MAX_VOICE_BYTES` | No | `16777216` | Maximum voice-note size (16 MB). |
+| `APP_CHAT_MAX_FILE_BYTES` | No | `20971520` | Maximum document size (20 MB). |
+| `APP_CHAT_MAX_VOICE_SECONDS` | No | `300` | Maximum voice-note duration. |
+| `APP_CHAT_MESSAGES_PER_MINUTE` | No | `30` | Per-user message rate limit. |
+| `APP_CHAT_UPLOADS_PER_MINUTE` | No | `10` | Per-user upload rate limit. |
+| `APP_CHAT_TYPING_THROTTLE` | No | `PT2S` | Minimum interval between typing events. |
+| `APP_CHAT_MAX_SESSIONS_PER_USER` | No | `5` | Maximum concurrent WebSocket sessions per user. |
+
+### Friends, presence, and social limits
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `APP_FRIENDS_MAX_PER_USER` | No | `1000` | Maximum accepted friends per user. |
+| `APP_FRIENDS_MAX_PENDING_OUTGOING` | No | `50` | Maximum pending outgoing requests. |
+| `APP_FRIENDS_DECLINED_COOLDOWN` | No | `PT72H` | Cooldown before retrying a declined request. |
+| `APP_PRESENCE_ONLINE_WINDOW` | No | `PT2M` | Heartbeat window for `ONLINE`. |
+| `APP_PRESENCE_AWAY_WINDOW` | No | `PT10M` | Heartbeat window for `AWAY`. |
+| `APP_SOCIAL_SEARCH_PER_MINUTE` | No | `20` | User search rate limit per minute. |
+| `APP_SOCIAL_FRIEND_REQUEST_PER_HOUR` | No | `10` | Friend-request rate limit per hour. |
+
+### Transactional email and password reset
+
+| Variable | Required | Default / example | Description |
+|---|---|---|---|
+| `RESEND_API_KEY` | Prod (email) | — | Resend API key. Without it, transactional email is disabled. |
+| `EMAIL_MODE` | No | `off` | `off` = do not send; `test` = send only to `EMAIL_TEST_RECIPIENT`; `live` = send to the user. |
+| `EMAIL_FROM` | No | `DevRats <onboarding@resend.dev>` | Verified sender address. |
+| `EMAIL_REPLY_TO` | No | — | Optional reply-to address. |
+| `EMAIL_TEST_RECIPIENT` | Test mode | — | Single recipient used in `test` mode. |
+| `EMAIL_TIMEOUT` | No | `PT10S` | Resend request timeout. |
+| `RESEND_BASE_URL` | No | `https://api.resend.com` | Resend API base URL. |
+| `APP_AUTH_RESET_TOKEN_TTL` | No | `PT30M` | Password-reset link lifetime. |
+| `APP_AUTH_RESET_REQUEST_COOLDOWN` | No | `PT1M` (prod) / `PT0S` (local) | Minimum interval between reset requests for the same account. |
+
+### Advanced tunables
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_GROUPS_MAX_MEMBERS` | `20` | Maximum group size. |
+| `APP_CHALLENGES_MAX_COMMIT_AGE` | `PT48H` | Maximum accepted commit age. |
+| `APP_WEBHOOK_RETENTION_DAYS` | `90` | Webhook payload retention. |
+| `RATE_LIMIT_TRUST_FORWARDED_HEADERS` | `false` | Trust `X-Forwarded-For` when behind a known proxy. |
+| `APP_MULTIPART_MAX_FILE_SIZE` | `25MB` | Transport-level multipart limit. |
+| `APP_MULTIPART_MAX_REQUEST_SIZE` | `30MB` | Transport-level request limit. |
+| `APP_SOCIAL_PROFILE_PER_MINUTE` | `60` | Public-profile rate limit. |
+| `APP_RETENTION_AUDIT_DAYS` | `730` | Audit-log retention. |
+| `APP_RETENTION_NOTIFICATION_DAYS` | `180` | Notification retention. |
+| `APP_RETENTION_PRESENCE_DAYS` | `30` | Presence retention. |
+| `APP_RETENTION_SOCIAL_TIMELINE_DAYS` | `180` | Social timeline retention. |
+
+**Security notes**
+
+- Never commit `.env`, private keys, JWTs, or GitHub tokens.
+- `.env.example` contains example values only.
+- The `local` profile must be explicitly enabled; the `prod` profile disables Swagger and reset-token exposure by default.
+- The chat bucket must be private. Downloads use short-lived presigned URLs.
 
 ## GitHub App
 
-1. Crie uma GitHub App em `Settings > Developer settings > GitHub Apps`.
-2. Permissões de repositório: **Metadata: read** e **Contents: read**.
-3. Eventos: `push`, `installation`, `installation_repositories`, `repository`, `installation_suspend`, `installation_unsuspend`.
+1. Create a GitHub App under **Settings → Developer settings → GitHub Apps**.
+2. Repository permissions: **Metadata: read** and **Contents: read**.
+3. Subscribe to events: `push`, `installation`, `installation_repositories`, `repository`, `installation_suspend`, `installation_unsuspend`.
 4. Webhook URL: `/api/v1/webhooks/github`.
 5. Callback URL: `/api/v1/integrations/github/callback`.
 6. Setup URL: `/api/v1/integrations/github/setup`.
-7. Gere a chave privada e preencha as variáveis acima.
+7. Generate a private key and fill the `GITHUB_*` variables.
 
-O callback e o setup sempre redirecionam para `APP_FRONTEND_URL`: sucesso em `?github=connected` ou
-`?github=installed`, falha em `?github=error&reason=<codigo>`. Assim o usuário não fica preso em uma resposta JSON.
+The callback and setup flows always redirect to `APP_FRONTEND_URL`:
 
-Para desenvolvimento local, exponha a porta 8080 com `smee.io` ou `ngrok` e use a URL pública no webhook da GitHub App.
+- success: `?github=connected` or `?github=installed`
+- failure: `?github=error&reason=<code>`
 
-## Recuperação de senha
+This avoids leaving the user on a raw JSON response after an OAuth round trip.
 
-Dois endpoints públicos, sem autenticação:
+For local development, expose port `8080` with `smee.io` or `ngrok` and use the public URL as the GitHub webhook URL. See [`docs/GITHUB-APP-SETUP.md`](docs/GITHUB-APP-SETUP.md) for the full walkthrough.
 
-- `POST /api/v1/auth/password-reset/request` — sempre responde `202` com a mesma mensagem,
-  exista ou não a conta. Em `local`, o token também volta no campo `resetToken`.
-- `POST /api/v1/auth/password-reset/confirm` — valida o token de uso único, troca a senha e
-  revoga todas as sessões do usuário.
+## API Surface
 
-O link é enviado por e-mail via **Resend** e usa o fragmento
-`https://devrats.app/reset-password#token=...`, que não é enviado ao servidor nem aparece em
-logs de proxy. O token tem 30 minutos de validade, hash SHA-256 no banco e só pode ser usado
-uma vez. O envio ocorre **depois do commit**, de forma assíncrona, então uma falha do provedor
-não desfaz o token nem revela se o e-mail existe.
+All routes are versioned under `/api/v1`. Authentication uses `Authorization: Bearer <access-token>` except for explicitly public auth, invite, and webhook routes.
 
-Configuração, modos (`off`/`test`/`live`), DNS e runbook: [`docs/EMAIL.md`](docs/EMAIL.md).
-
-## API
-
-Todas as rotas são versionadas em `/api/v1`.
-
-### Autenticação e perfil
+<details>
+<summary><b>Authentication, profile, and account</b></summary>
 
 - `POST /auth/register`
-- `POST /auth/login`
+- `POST /auth/login` (accepts e-mail or username)
 - `POST /auth/refresh`
 - `POST /auth/logout`
 - `POST /auth/password-reset/request`
@@ -225,7 +456,10 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /me/export`
 - `DELETE /me`
 
-### GitHub
+</details>
+
+<details>
+<summary><b>GitHub integration</b></summary>
 
 - `GET /integrations/github`
 - `GET /integrations/github/authorize-url`
@@ -237,7 +471,10 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /github/repositories`
 - `POST /webhooks/github`
 
-### Grupos, convites e desafios
+</details>
+
+<details>
+<summary><b>Groups, invites, and challenges</b></summary>
 
 - `POST /groups`
 - `GET /groups`
@@ -261,7 +498,10 @@ Todas as rotas são versionadas em `/api/v1`.
 - `POST /challenges/{challengeId}/start`
 - `POST /challenges/{challengeId}/cancel`
 
-### Progresso e leitura
+</details>
+
+<details>
+<summary><b>Progress, notifications, and results</b></summary>
 
 - `GET /challenges/{challengeId}/progress`
 - `GET /challenges/{challengeId}/leaderboard`
@@ -274,7 +514,10 @@ Todas as rotas são versionadas em `/api/v1`.
 - `POST /notifications/read-all`
 - `DELETE /notifications/{id}`
 
-### Amigos e presença
+</details>
+
+<details>
+<summary><b>Friends, public profiles, and presence</b></summary>
 
 - `GET /users/search?q=&limit=10`
 - `GET /users/{username}`
@@ -288,7 +531,10 @@ Todas as rotas são versionadas em `/api/v1`.
 - `DELETE /friends/{userId}`
 - `POST /presence/heartbeat`
 
-### Chat em tempo real
+</details>
+
+<details>
+<summary><b>Real-time chat</b></summary>
 
 - `GET /chat/conversations?page=&size=`
 - `POST /chat/conversations`
@@ -301,72 +547,124 @@ Todas as rotas são versionadas em `/api/v1`.
 - `GET /chat/unread-count`
 - `GET /chat/attachments/{attachmentId}/url`
 
-O WebSocket fica em `ws(s)://<api>/ws` (STOMP). O cliente envia o JWT no header `Authorization` do frame `CONNECT` e assina `/user/queue/chat`. O envio de mensagens usa REST para preservar idempotência, validação, multipart e ProblemDetail; o socket entrega os eventos ao vivo. Anexos ficam em bucket S3 privado e são baixados por URL assinada de curta duração.
+</details>
 
-Perfil público, busca, amigos, solicitações, presença e chat respondem com `Cache-Control: no-store`. A presença (`ONLINE`, `AWAY`, `OFFLINE`) só é exposta a amigos ou ao próprio titular — o instante do heartbeat nunca sai da API. Busca, envio de solicitação, mensagens e uploads têm rate limit por IP/usuário; um 429 sempre traz o header `Retry-After`.
+### Real-time chat and WebSocket
 
-Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `traceId`.
+The STOMP endpoint is `ws(s)://<api>/ws`.
 
-## Regras de atividade
+- The client sends the JWT in the `Authorization` header of the `CONNECT` frame and subscribes to `/user/queue/chat`.
+- **Writes stay on REST** (send message, upload attachment, mark read) to preserve idempotency, validation, multipart handling, and `ProblemDetail` errors.
+- The socket delivers live events and typing indicators.
+- Attachments live in a private S3-compatible bucket and are downloaded through short-lived presigned URLs.
+- Chat, social, and profile responses use `Cache-Control: no-store`.
+- Presence (`ONLINE`, `AWAY`, `OFFLINE`) is visible only to friends or the owner; raw heartbeat timestamps never leave the API.
+- A `429` response always includes `Retry-After`.
 
-- Um commit elegível gera no máximo um dia válido por data no fuso do desafio.
-- Commits anteriores ao início, depois do encerramento, anteriores à entrada do participante ou com mais de 48h de idade são rejeitados (limite configurável em `APP_CHALLENGES_MAX_COMMIT_AGE`).
-- A admissão pode continuar aberta após o início, conforme `admissionEndsAt` definido pelo criador.
-- Autoria é verificada pelo ID numérico do GitHub, não por nome ou e-mail do commit.
-- Bots, commits vazios e merge commits não contam.
-- No modo `SELECTED_REPOSITORIES`, o repositório precisa estar vinculado ao desafio (máximo 3).
-- No modo `OWN_REPOSITORIES`, o repositório precisa pertencer à conta pessoal do participante.
-- Webhooks repetidos são reconhecidos por `X-GitHub-Delivery`.
-- Eventos perdidos são recuperados por uma reconciliação periódica idempotente.
+### Error model
 
-## Testes
+Errors follow RFC 9457 (`application/problem+json`) with `code`, `detail`, and `traceId`. The `traceId` correlates the response with server logs without exposing stack traces or internal messages.
 
-- Unitários: elegibilidade, streaks, fuso, assinatura HMAC e política de senha.
-- Integração: autenticação, webhook idempotente, fluxo de grupo/convite/início, limite de 3 repositórios e processamento de commits com Testcontainers.
-- Concorrência: dois participantes atingindo a meta simultaneamente produzem exatamente um vencedor.
-- Arquitetura: fronteiras de camada e convenções validadas com ArchUnit.
+## Activity Rules
 
-O CI executa `./mvnw -B verify` em JDK 25 e publica o relatório do JaCoCo como artefato.
+- One eligible commit produces at most **one valid day** per challenge-local date.
+- Commits before the challenge start, after the end, before the participant joined, or older than 48 hours are rejected.
+- Admission may remain open after the start according to the creator's `admissionEndsAt`.
+- Authorship is verified by the numeric GitHub user ID, not by commit name or e-mail.
+- Bots, empty commits, and merge commits do not count.
+- `SELECTED_REPOSITORIES`: the repository must be linked to the challenge (maximum of 3).
+- `OWN_REPOSITORIES`: the repository must belong to the participant's personal GitHub account.
+- Duplicate webhooks are recognized by `X-GitHub-Delivery`.
+- Lost events are recovered by periodic, idempotent reconciliation.
 
-## Limitações conhecidas do MVP
+## Testing
 
-- O envio de e-mail é assíncrono e não tem outbox: se o processo cair entre o commit e o envio, aquele e-mail específico se perde; o usuário pode solicitar outro link. O caminho de evolução com outbox está em [`docs/EMAIL.md`](docs/EMAIL.md).
-- A validação real da GitHub App depende das credenciais e de uma URL pública de webhook (`smee.io`/`ngrok` em desenvolvimento). Sem elas, o status é `appConfigured=false`.
-- A reconciliação, os jobs agendados e o broker STOMP simples assumem uma única instância da API. Para múltiplas réplicas, adicione um lock distribuído (ShedLock/Redis) e um broker relay (RabbitMQ) ou uma ponte Redis Pub/Sub antes de escalar horizontalmente.
-- O chat v1 aceita um anexo por mensagem; criptografia ponta a ponta, push notification, busca/edição de mensagens, moderação e virus scanning ficam para evoluções.
-- O bucket de anexos do chat precisa ser privado; sem `APP_CHAT_STORAGE_BUCKET` o chat de texto funciona, mas uploads retornam 503.
-- Correções retroativas de resultado exigem procedimento administrativo auditado; não há endpoint público para alterar um vencedor já finalizado.
-
----
-
-## 🤝 Governança e Comunidade
-
-Este repositório segue uma governança formal, espelhando a dos demais projetos do autor:
-
-| Documento | Finalidade |
+| Suite | What it covers |
 |---|---|
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Fluxo de branches/commits, diretrizes arquiteturais, migrations e gates de qualidade. |
-| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Código de conduta da comunidade. |
-| [`SECURITY.md`](SECURITY.md) | Política de divulgação responsável e escopo de segurança do backend. |
-| [`CHANGELOG.md`](CHANGELOG.md) | Histórico de versões ([Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) + SemVer). |
-| [`LICENSE`](LICENSE) | Licença MIT. |
-| [`.github/`](.github) | Templates de Issue/PR e workflows de **CI** (Maven verify) e **labels**. |
-| [`.editorconfig`](.editorconfig) · [`.gitattributes`](.gitattributes) | Padronização de estilo, finais de linha LF e normalização de binários. |
+| Unit | Eligibility, streaks, timezone conversion, HMAC signature, password policy |
+| Integration | Authentication, idempotent webhook, group/invite/start flow, 3-repository limit, commit processing with Testcontainers |
+| Concurrency | Two participants reaching the target simultaneously produce exactly one winner |
+| Architecture | Layer boundaries and conventions validated with ArchUnit |
+
+The CI workflow runs `./mvnw -B verify` on JDK 25 and publishes the JaCoCo report as an artifact.
+
+```powershell
+.\mvnw.cmd verify
+```
+
+## Known Limitations (MVP Trade-offs)
+
+This section is deliberately explicit: these are conscious MVP decisions, not hidden behavior.
+
+### Authentication and e-mail
+
+- **`AUTH_EXPOSE_RESET_TOKEN=true` is local-only.** The `local` profile returns the password-reset token in the API response so the flow can be tested without e-mail. Production sets it to `false` in `application-prod.properties`.
+- Production password reset requires a transactional e-mail provider. The current implementation uses **Resend**; an **AWS SES/SMTP adapter** can replace it behind the `EmailService` contract. A verified sender domain and DNS records are required.
+- **There is no outbox.** Sending is asynchronous after commit (`@TransactionalEventListener` + `@Async`). If the process dies between the database commit and the provider call, that specific e-mail is lost. The user can request another link. The evolution path is documented in [`docs/EMAIL.md`](docs/EMAIL.md).
+- Without `RESEND_API_KEY` or with `EMAIL_MODE=off`, transactional e-mail is disabled.
+
+### WebSocket and horizontal scaling
+
+- The STOMP broker is the **simple in-memory broker** from Spring. It works for a single API instance only.
+- For multiple replicas, add a **STOMP broker relay (RabbitMQ)** or a **Redis Pub/Sub bridge**, plus sticky sessions or an external event bus.
+- Rate limiting and presence state are also local to the instance. A cluster requires a shared store (Redis) or a distributed lock.
+- Reconciliation and scheduled jobs assume a single instance. Add ShedLock/Redis before scaling horizontally.
+
+### Chat
+
+- The v1 accepts **one attachment per message**.
+- Attachments are stored in a private S3-compatible bucket and served through **presigned URLs** with a 15-minute default TTL.
+- There is no end-to-end encryption, push notifications, message editing/search, reactions, threads, moderation, or virus scanning.
+- Without `APP_CHAT_STORAGE_BUCKET`, text chat still works, but uploads return `503`.
+- HEIC images are not accepted because the JDK does not decode the format natively.
+
+### Other MVP boundaries
+
+- GitHub App validation depends on real credentials and a public webhook URL (`smee.io`/`ngrok` in development). Without them, the integration reports `appConfigured=false`.
+- Retroactive result corrections require an audited administrative procedure; there is no public endpoint to change a finalized winner.
+- Avatar upload requires a configured S3-compatible bucket, credentials, and public base URL; otherwise the app falls back to the GitHub avatar or initials.
 
 ---
 
-## Documentação relacionada
+## Governance
 
-- [`docs/PRD-MVD.md`](docs/PRD-MVD.md) — PRD do produto.
-- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) — convenções de código, camadas e testes.
-- [`../webapp-dev-rats`](../webapp-dev-rats) — frontend React que consome esta API.
+This repository follows a formal governance model shared by the DevRats projects. **English is the default language for the README, contribution guide, security policy, changelog, and collaboration templates.** Deep-dive product documents under `docs/` remain in Portuguese for now and are scheduled for a follow-up translation pass.
 
----
+| Document | Purpose |
+|---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Branch/commit flow, architectural rules, migrations, and quality gates |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community code of conduct |
+| [`SECURITY.md`](SECURITY.md) | Responsible disclosure policy and backend security scope |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + SemVer) |
+| [`docs/`](docs) | Product PRD, conventions, deployment, e-mail, GitHub App, and feature records |
+| [`LICENSE`](LICENSE) | MIT License |
+| [`.github/`](.github) | Issue/PR templates, CI workflow, and label automation |
+| [`.editorconfig`](.editorconfig) · [`.gitattributes`](.gitattributes) | Style standardization, LF line endings, and binary normalization |
 
-## 📄 Licença
+### Repository standards
 
-Distribuído sob a licença **MIT**. Consulte o arquivo [`LICENSE`](LICENSE) para mais informações.
+- **Workflow:** trunk-based development with short-lived branches merged through pull requests.
+- **Commits:** Conventional Commits in English (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
+- **Quality gate:** `./mvnw verify` must be green; new behavior requires tests and an accompanying database constraint when idempotency is involved.
+- **Migrations:** immutable after being applied; named `V{n}__snake_case_description.sql`.
+- **Security:** no secrets in the repository; authorization is enforced by the API, never only by the client.
+
+## Related Documentation
+
+- [`docs/PRD-MVD.md`](docs/PRD-MVD.md) — product requirements and domain rules.
+- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) — code, layer, and test conventions.
+- [`docs/GITHUB-APP-SETUP.md`](docs/GITHUB-APP-SETUP.md) — GitHub App configuration.
+- [`docs/EMAIL.md`](docs/EMAIL.md) — transactional e-mail modes and runbook.
+- [`docs/DEPLOY-VPS.md`](docs/DEPLOY-VPS.md) — VPS, Caddy, DNS, and production deployment.
+- [`docs/PR-CHAT.md`](docs/PR-CHAT.md) — chat feature design record.
+- [`docs/PR-PASSWORD-RESET.md`](docs/PR-PASSWORD-RESET.md) — password-reset design record.
+- [webapp-dev-rats](https://github.com/felipevenas/webapp-dev-rats) — React frontend that consumes this API.
+- [DevRats Web (production)](https://devrats.app) — live application.
+
+## License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for the full text.
 
 <div align="center">
-Desenvolvido com excelência por <b><a href="https://github.com/felipevenas">Felipe Venas</a></b>
+Built with care by <b><a href="https://github.com/felipevenas">Felipe Venas</a></b>
 </div>

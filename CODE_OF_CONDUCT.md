@@ -1,37 +1,37 @@
-# Código de Conduta do Contribuinte 📜
+# Contributor Code of Conduct 📜
 
-## Nosso Compromisso
+## Our Commitment
 
-Com o intuito de promover um ambiente aberto e acolhedor, nós, como colaboradores e mantenedores do **DevRats**, nos comprometemos a tornar a participação em nosso projeto e comunidade uma experiência livre de assédio para todos, independentemente de idade, tamanho corporal, deficiência visível ou invisível, etnia, características sexuais, identidade e expressão de gênero, nível de experiência, educação, status socioeconômico, nacionalidade, aparência pessoal, raça, religião ou identidade e orientação sexual.
+In order to foster an open and welcoming environment, we, as contributors and maintainers of **DevRats**, commit to making participation in our project and community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sexual characteristics, gender identity and expression, level of experience, education, socioeconomic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
-## Nossos Padrões
+## Our Standards
 
-Exemplos de comportamentos que contribuem para criar um ambiente positivo:
+Examples of behavior that contributes to a positive environment:
 
-- Usar linguagem acolhedora e inclusiva.
-- Ter respeito em relação a pontos de vista e experiências diferentes.
-- Aceitar feedback construtivo com elegância.
-- Focar no que é melhor para a comunidade e para a qualidade técnica do projeto.
-- Demonstrar empatia em relação aos outros membros da comunidade.
-- Respeitar a privacidade dos repositórios e dos dados de outros participantes.
+- Using welcoming and inclusive language.
+- Respecting different viewpoints and experiences.
+- Accepting constructive feedback gracefully.
+- Focusing on what is best for the community and the technical quality of the project.
+- Showing empathy toward other community members.
+- Respecting the privacy of other participants' repositories and data.
 
-Exemplos de comportamentos inaceitáveis:
+Examples of unacceptable behavior:
 
-- O uso de linguagem ou imagens sexualizadas e atenção sexual indesejada.
-- Comentários ofensivos, discriminatórios ou ataques pessoais.
-- Assédio público ou privado.
-- Publicar informações privadas de terceiros sem permissão explícita.
-- Expor código, dados, metadados de commits ou credenciais de repositórios privados de terceiros.
-- Qualquer conduta que possa ser razoavelmente considerada inadequada em um ambiente profissional.
+- The use of sexualized language or imagery and unwelcome sexual attention.
+- Offensive, discriminatory comments or personal attacks.
+- Public or private harassment.
+- Publishing private information about others without explicit permission.
+- Exposing code, data, commit metadata, or credentials from third-party private repositories.
+- Any conduct that could reasonably be considered inappropriate in a professional environment.
 
-## Aplicação e Responsabilidades
+## Enforcement and Responsibilities
 
-Os mantenedores do projeto são responsáveis por esclarecer e fazer cumprir nossos padrões de comportamento aceitável e tomarão ações corretivas apropriadas e justas em resposta a qualquer comportamento considerado inadequado, ameaçador, ofensivo ou prejudicial.
+Project maintainers are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior they consider inappropriate, threatening, offensive, or harmful.
 
-## Relato de Violações
+## Reporting Violations
 
-Instâncias de comportamento abusivo, assédio ou qualquer conduta inaceitável podem ser relatadas entrando em contato diretamente com a equipe de mantenedores através do repositório oficial no GitHub. Todas as queixas serão analisadas e investigadas prontamente e de maneira confidencial.
+Instances of abusive behavior, harassment, or any unacceptable conduct may be reported by contacting the maintainer team directly through the official GitHub repository. All complaints will be reviewed and investigated promptly and confidentially.
 
-## Escopo
+## Scope
 
-Este código de conduta se aplica a todos os espaços do projeto: repositório, issues, pull requests, discussões, revisões de código e qualquer canal oficial da comunidade DevRats.
+This code of conduct applies to all project spaces: the repository, issues, pull requests, discussions, code reviews, and any official DevRats community channel.

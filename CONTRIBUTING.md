@@ -1,20 +1,20 @@
-# Guia de Contribuição 🤝
+# Contributing Guide 🤝
 
-Obrigado pelo interesse em contribuir com a **DevRats API**! Este documento orienta o processo de desenvolvimento para manter o backend consistente, seguro e sustentável.
+Thank you for your interest in contributing to the **DevRats API**! This document explains the development process so the backend stays consistent, secure, and sustainable.
 
-> **Regra de ouro:** o DevRats comprova atividade elegível, não aprendizado. Nenhuma contribuição pode expor código-fonte, mensagens privadas de commit, tokens ou dados de repositórios de terceiros. A API é a fonte de verdade para autorização, progresso e resultado dos desafios.
+> **Golden rule:** DevRats verifies eligible activity, not learning. No contribution may expose source code, private commit messages, tokens, or data from third-party repositories. The API is the source of truth for authorization, progress, and challenge results.
 
 ---
 
-## 🛠️ Ambiente de Desenvolvimento
+## 🛠️ Development Environment
 
-### Pré-requisitos
+### Prerequisites
 
-- **JDK 25** (Temurin recomendado).
-- **Docker Desktop** em execução (PostgreSQL local e Testcontainers).
-- **Git** e **Maven Wrapper** (já versionado no repositório).
+- **JDK 25** (Temurin recommended).
+- **Docker Desktop** running (local PostgreSQL and Testcontainers).
+- **Git** and the **Maven Wrapper** (already committed to the repository).
 
-### Instalação
+### Installation
 
 ```powershell
 git clone https://github.com/felipevenas/api-dev-rats.git
@@ -24,135 +24,135 @@ docker compose up -d postgres
 .\run-local.ps1
 ```
 
-A API sobe em **http://localhost:8080**.
+The API starts at **http://localhost:8080**.
 
 - Health: `GET /actuator/health`
 - OpenAPI: `GET /v3/api-docs`
 - Swagger UI: `GET /swagger-ui.html`
 
-> Sem `SPRING_PROFILES_ACTIVE=local` a aplicação não sobe. Isso evita que segredos de desenvolvimento sejam usados por acidente em produção. O script `run-local.ps1` define o profile e o `JAVA_HOME` automaticamente.
+> The application will not boot without `SPRING_PROFILES_ACTIVE=local`. This prevents development secrets from being used in production by accident. `run-local.ps1` sets the profile and `JAVA_HOME` automatically.
 
-Detalhes completos de setup, configuração e endpoints estão no [`README.md`](README.md).
+Complete setup, configuration, and endpoint documentation are in [`README.md`](README.md).
 
 ---
 
-## 🌿 Branches e Commits
+## 🌿 Branches and Commits
 
-Adotamos **Trunk-Based Development** com branches curtas a partir de `main`, mescladas por Pull Request.
+We use **Trunk-Based Development** with short-lived branches created from `main` and merged through pull requests.
 
-### Nomes de branches
+### Branch names
 
-- `feat/nome-da-feature`
-- `bug/nome-do-bug`
-- `chore/nome-da-tarefa`
-- `docs/nome-do-documento`
-- `style/nome-do-ajuste-visual`
-- `refactor/nome-da-refatoracao`
-- `test/nome-do-teste`
+- `feat/feature-name`
+- `bug/bug-name`
+- `chore/task-name`
+- `docs/document-name`
+- `style/visual-adjustment`
+- `refactor/refactoring-name`
+- `test/test-name`
 
-Exemplos: `feat/ranking-por-fuso`, `bug/reconciliacao-duplicada`, `chore/migration-avatar`.
+Examples: `feat/timezone-ranking`, `bug/duplicate-reconciliation`, `chore/avatar-migration`.
 
 ### Commits
 
-Mensagens em português com prefixos convencionais:
+Commit messages are written in **English** with conventional prefixes:
 
-| Prefixo     | Uso                                                        |
-| ----------- | ---------------------------------------------------------- |
-| `feat:`     | Nova funcionalidade visível ao usuário                     |
-| `fix:`      | Correção de comportamento ou de contrato da API            |
-| `refactor:` | Refatoração sem alteração funcional                        |
-| `docs:`     | Documentação, README ou comentários relevantes             |
-| `test:`     | Testes unitários, de integração ou de arquitetura          |
-| `style:`    | Ajuste puramente visual ou de formatação                   |
-| `chore:`    | Build, dependências, CI/CD, migrations ou configuração     |
+| Prefix | Use |
+| --- | --- |
+| `feat:` | New user-visible functionality |
+| `fix:` | Behavior or API contract fix |
+| `refactor:` | Refactoring with no functional change |
+| `docs:` | Documentation, README, or relevant comments |
+| `test:` | Unit, integration, or architecture tests |
+| `style:` | Formatting or purely visual adjustment |
+| `chore:` | Build, dependencies, CI/CD, migrations, or configuration |
 
-Exemplo: `feat: adiciona desempate por horário do último commit elegível`.
+Example: `feat: add tie-break by last eligible commit time`.
 
 ---
 
-## 🏛️ Diretrizes Arquiteturais
+## 🏛️ Architectural Guidelines
 
-A organização em camadas e as regras de nomenclatura são **obrigatórias** e estão detalhadas em [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
+The layered organization and naming rules are **mandatory** and are detailed in [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
 
 ```
 controllers -> services -> repositories -> entities
 controllers -> dto
 services    -> services/github, services/activity, utils
-security    -> services (token), repositories (leitura de usuário)
+security    -> services (token), repositories (read user)
 ```
 
-Regras que não podem ser quebradas:
+Rules that must not be broken:
 
-1. **Controller não acessa repository nem entidade.** Toda regra de negócio passa por `services`.
-2. **Service não conhece HTTP.** Nada de `ResponseEntity`, `HttpStatus` ou `ProblemDetail` fora de `controllers`.
-3. **Entidade não conhece DTO, controller ou service.** Mapeamentos ficam em `dto` ou `utils`.
-4. **Transações apenas em `services/impl`.** Escritas com `@Transactional`; leituras com `@Transactional(readOnly = true)`.
-5. **Idempotência é garantida por constraints**, não por `if (exists)`. Webhooks, commits e dias válidos têm constraints únicas.
-6. **Nunca segurar lock de banco durante chamada HTTP ao GitHub.** Recalcule valores absolutos com `FOR UPDATE` quando houver concorrência.
-7. **`Clock` e `ZoneId` entram por parâmetro.** Nunca use `LocalDate.now()` escondido em regra de domínio.
-8. **Contratos são versionados em `/api/v1`.** Erros seguem RFC 9457 (`application/problem+json`) com `code`, `detail` e `traceId`.
+1. **Controllers do not access repositories or entities.** Every business rule goes through `services`.
+2. **Services do not know HTTP.** No `ResponseEntity`, `HttpStatus`, or `ProblemDetail` outside `controllers`.
+3. **Entities do not know DTOs, controllers, or services.** Mapping belongs in `dto` or `utils`.
+4. **Transactions live only in `services/impl`.** Writes use `@Transactional`; reads use `@Transactional(readOnly = true)`.
+5. **Idempotency is guaranteed by constraints**, not by `if (exists)`. Webhooks, commits, and valid days have unique constraints.
+6. **Never hold a database lock during an outbound HTTP call to GitHub.** Recompute absolute values with `FOR UPDATE` when concurrency is involved.
+7. **`Clock` and `ZoneId` are injected as parameters.** Never hide `LocalDate.now()` inside a domain rule.
+8. **Contracts are versioned under `/api/v1`.** Errors follow RFC 9457 (`application/problem+json`) with `code`, `detail`, and `traceId`.
 
 ---
 
-## 🧪 Gates de Qualidade
+## 🧪 Quality Gates
 
-Execute antes de abrir um Pull Request:
+Run this before opening a pull request:
 
 ```powershell
 .\mvnw.cmd verify
 ```
 
-O `verify` executa compilação, testes unitários, testes de integração com Testcontainers, testes de arquitetura (ArchUnit) e gera o relatório de cobertura em `target/site/jacoco/index.html`.
+`verify` compiles the project, runs unit tests, integration tests with Testcontainers, and architecture tests with ArchUnit, then generates the coverage report at `target/site/jacoco/index.html`.
 
-Checklist mínimo:
+Minimum checklist:
 
-- [ ] Testes novos cobrem o comportamento adicionado ou corrigido.
-- [ ] Testes seguem o padrão `shouldDoX_whenCondition`.
-- [ ] Constraint de banco acompanha a regra de idempotência.
-- [ ] Nenhum novo aviso de compilação ou violação de ArchUnit.
-- [ ] Cobertura não regride de forma significativa.
+- [ ] New tests cover the added or fixed behavior.
+- [ ] Tests follow the `shouldDoX_whenCondition` naming pattern.
+- [ ] A database constraint accompanies every idempotency rule.
+- [ ] No new compiler warnings or ArchUnit violations.
+- [ ] Coverage does not regress significantly.
 
 ### Migrations (Flyway)
 
-Migrations ficam em `src/main/resources/db/migration` e seguem o padrão `V{n}__descricao_em_snake_case.sql`.
+Migrations live in `src/main/resources/db/migration` and follow `V{n}__snake_case_description.sql`.
 
-1. Crie uma nova migration versionada; **nunca edite uma migration já aplicada**.
-2. Aplique localmente subindo a aplicação com `.\run-local.ps1` ou executando `.\mvnw.cmd flyway:migrate`.
-3. Inclua a migration no mesmo commit da alteração de entidade ou regra de negócio.
-4. Para mudanças destrutivas, planeje a compatibilidade com a versão anterior da API.
-
----
-
-## 🔐 Segurança e Privacidade
-
-- Nunca versione `.env`, chaves, tokens ou credenciais. Use apenas `.env.example` com valores de exemplo.
-- Tokens do GitHub são armazenados cifrados com AES-256-GCM; nunca os registre em logs, traces ou respostas.
-- Não registre payloads de autenticação, cookies, headers de webhook ou dados pessoais em logs.
-- Valide a assinatura HMAC (`X-Hub-Signature-256`) de todo webhook antes de processar o evento.
-- Permissões e autorização são validadas **na API**, não apenas na interface.
-- Dependências novas exigem justificativa, licença compatível e revisão de vulnerabilidades.
-- Vulnerabilidades devem seguir [`SECURITY.md`](SECURITY.md), nunca uma issue pública.
+1. Create a new versioned migration; **never edit an already-applied migration**.
+2. Apply it locally by starting the application with `.\run-local.ps1` or running `.\mvnw.cmd flyway:migrate`.
+3. Include the migration in the same commit as the entity or business-rule change.
+4. For destructive changes, plan compatibility with the previous API version.
 
 ---
 
-## 📬 Submetendo um Pull Request
+## 🔐 Security and Privacy
 
-1. Crie uma branch curta a partir de `main`.
-2. Mantenha `.\mvnw.cmd verify` verde.
-3. Atualize o [`CHANGELOG.md`](CHANGELOG.md) quando a mudança for relevante ao usuário.
-4. Preencha o template de PR com evidências e passos de teste.
-5. Para mudanças de contrato da API, atualize o README, o OpenAPI e os testes de integração.
-6. Aguarde a CI e a revisão antes do merge (squash).
-
-Alterações em autenticação, integração GitHub, webhooks, permissões, convites ou privacidade exigem atenção explícita à segurança no PR.
+- Never commit `.env`, keys, tokens, or credentials. Use only `.env.example` with placeholder values.
+- GitHub tokens are stored encrypted with AES-256-GCM; never log them or return them in responses.
+- Do not log authentication payloads, cookies, webhook headers, or personal data.
+- Validate the HMAC signature (`X-Hub-Signature-256`) of every webhook before processing the event.
+- Permissions and authorization are validated **in the API**, not only in the interface.
+- New dependencies require justification, a compatible license, and a vulnerability review.
+- Vulnerabilities must follow [`SECURITY.md`](SECURITY.md), never a public issue.
 
 ---
 
-## ✅ Definição de Pronto
+## 📬 Submitting a Pull Request
 
-- Comportamento descrito, implementado e testado.
-- Contrato da API e documentação atualizados quando aplicável.
-- Estados de erro, idempotência e concorrência tratados.
-- Migrations versionadas e compatíveis.
-- Nenhum segredo ou dado sensível versionado.
-- CI verde e PR aprovado.
+1. Create a short-lived branch from `main`.
+2. Keep `.\mvnw.cmd verify` green.
+3. Update [`CHANGELOG.md`](CHANGELOG.md) when the change is relevant to users.
+4. Fill in the PR template with evidence and test steps.
+5. For API contract changes, update the README, OpenAPI, and integration tests.
+6. Wait for CI and review before merging (squash).
+
+Changes to authentication, GitHub integration, webhooks, permissions, invites, or privacy require explicit security attention in the PR.
+
+---
+
+## ✅ Definition of Done
+
+- Behavior is described, implemented, and tested.
+- API contract and documentation are updated when applicable.
+- Error states, idempotency, and concurrency are handled.
+- Migrations are versioned and compatible.
+- No secrets or sensitive data are committed.
+- CI is green and the PR is approved.
