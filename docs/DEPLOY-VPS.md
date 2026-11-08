@@ -197,6 +197,21 @@ APP_AUTH_RESET_REQUEST_COOLDOWN=PT1M
 APP_CHAT_STORAGE_BUCKET=
 APP_CHAT_STORAGE_KEY_PREFIX=chat
 APP_CHAT_ATTACHMENT_URL_TTL=PT15M
+# Fotos de estudo: bucket privado, mesma região do APP_STORAGE_REGION.
+APP_STUDY_PHOTOS_ENABLED=true
+APP_STUDY_PHOTOS_STORAGE_BUCKET=devrats-study-photos
+APP_STUDY_PHOTOS_STORAGE_KEY_PREFIX=study-photos
+APP_STUDY_PHOTOS_MAX_IMAGE_BYTES=8388608
+APP_STUDY_PHOTOS_URL_TTL=PT15M
+APP_RATE_LIMIT_PHOTO_UPLOAD_CAPACITY=20
+APP_RATE_LIMIT_PHOTO_UPLOAD_REFILL=PT1H
+# Cloudflare Turnstile (cadastro, login e recuperação de senha).
+APP_TURNSTILE_ENABLED=true
+CLOUDFLARE_TURNSTILE_SITE_KEY=0x...
+CLOUDFLARE_TURNSTILE_SECRET_KEY=0x...
+CLOUDFLARE_TURNSTILE_VERIFY_URL=https://challenges.cloudflare.com/turnstile/v0/siteverify
+CLOUDFLARE_TURNSTILE_TIMEOUT=PT5S
+CLOUDFLARE_TURNSTILE_FAIL_OPEN=false
 ```
 
 `RATE_LIMIT_TRUST_FORWARDED_HEADERS=true` depende de o proxy preservar o IP real do cliente na primeira posição
@@ -229,10 +244,15 @@ vercel --prod --scope felipevenas-projects
 
 ```env
 VITE_WS_URL=wss://api.devrats.app/ws
+VITE_TURNSTILE_SITE_KEY=0x...
 ```
 
 O `VITE_WS_URL` é obrigatório em produção porque o WebSocket não passa pelo rewrite da Vercel. Sem ele, o app
 tentaria `wss://devrats.app/ws` e a conexão falharia.
+
+O `VITE_TURNSTILE_SITE_KEY` é público e deve ser o mesmo site key configurado no Cloudflare Turnstile para
+`devrats.app` (e `www.devrats.app`). Sem ele, o widget não renderiza; com `APP_TURNSTILE_ENABLED=true` na API,
+login e cadastro passam a exigir o token.
 
 > **Preview deployments:** o REST funciona via rewrite, mas o WebSocket só conecta se a origem
 > `https://<preview>.vercel.app` estiver em `APP_CORS_ALLOWED_ORIGINS`. Para testar chat em preview, adicione a URL

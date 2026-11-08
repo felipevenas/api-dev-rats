@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### 🚀 Added
 
+- **Study photo mode**: `STUDY_PHOTO` challenge mode where one study photo per participant per day validates the day, stored in a private S3 bucket with short-lived signed URLs, optional title/description and repository/commit context, one-photo-per-day uniqueness, deletion with day recalculation, LGPD export, and account-deletion cleanup.
+- **Cloudflare Turnstile**: server-side verification of the `X-Turnstile-Token` header on register, login, and password-reset request, with fail-closed production behavior and `fail-open` only for local development.
+- **Feature flags**: `GET /api/v1/features` exposes `studyPhotos` so the UI only offers the mode when the private bucket is configured.
 - Individual notification deletion, scoped to the authenticated user.
 - Group deletion by the creator, with notification to active participants and an audit record.
 - Default timezone of Brasilia for new accounts and challenges.

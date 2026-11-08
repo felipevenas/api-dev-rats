@@ -17,6 +17,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -48,11 +49,21 @@ public class MemberDailyActivityEntity {
     @Column(name = "activity_date", nullable = false)
     private LocalDate activityDate;
 
-    @Column(name = "first_eligible_commit_at", nullable = false)
+    //---- Commit evidence is optional: a day can be validated by a study photo only.
+    @Column(name = "first_eligible_commit_at")
     private Instant firstEligibleCommitAt;
 
     @Column(name = "valid_commit_count", nullable = false)
     private int validCommitCount;
+
+    @Column(name = "photo_count", nullable = false)
+    private int photoCount;
+
+    @Column(name = "first_photo_at")
+    private Instant firstPhotoAt;
+
+    @Column(nullable = false, precision = 3, scale = 1)
+    private BigDecimal points = BigDecimal.ONE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "validation_status", nullable = false, length = 16)

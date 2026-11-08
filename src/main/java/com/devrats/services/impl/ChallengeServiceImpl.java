@@ -33,6 +33,7 @@ import com.devrats.services.AuditService;
 import com.devrats.services.ChallengeService;
 import com.devrats.services.GroupAccessService;
 import com.devrats.services.NotificationService;
+import com.devrats.services.storage.StudyPhotoStorage;
 import com.devrats.utils.ActivityDateHelper;
 import com.devrats.utils.ChallengeViewHelper;
 import org.slf4j.Logger;
@@ -67,6 +68,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     private final GroupAccessService accessService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final StudyPhotoStorage photoStorage;
     private final AppProperties properties;
     private final Clock clock;
 
@@ -80,6 +82,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                                 GroupAccessService accessService,
                                 AuditService auditService,
                                 NotificationService notificationService,
+                                StudyPhotoStorage photoStorage,
                                 AppProperties properties,
                                 Clock clock) {
         this.challengeRepository = challengeRepository;
@@ -92,6 +95,7 @@ public class ChallengeServiceImpl implements ChallengeService {
         this.accessService = accessService;
         this.auditService = auditService;
         this.notificationService = notificationService;
+        this.photoStorage = photoStorage;
         this.properties = properties;
         this.clock = clock;
     }
@@ -106,6 +110,7 @@ public class ChallengeServiceImpl implements ChallengeService {
         }
         validateConfiguration(request.targetValidDays(), group.getTimezone(), request.startsAt(), request.endsAt(),
                 request.admissionEndsAt(), request.verificationMode(), request.repositoryIds(), actorId);
+        validatePhotoModeAvailability(request.verificationMode());
 
         ChallengeEntity challenge = new ChallengeEntity();
         challenge.setGroup(group);
@@ -171,6 +176,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                     .toList();
         }
         validateConfiguration(target, timezone, startsAt, endsAt, admissionEndsAt, mode, repositoryIdsForValidation, actorId);
+        validatePhotoModeAvailability(mode);
 
         challenge.setVerificationMode(mode);
         challenge.setTargetValidDays(target);
@@ -307,6 +313,7 @@ public class ChallengeServiceImpl implements ChallengeService {
             throw new ConflictException(ErrorCode.INVALID_CHALLENGE_STATE,
                     "Selecione pelo menos um repositório antes de iniciar");
         }
+        validatePhotoModeAvailability(challenge.getVerificationMode());
         Instant now = clock.instant();
         //---- Starting by hand before the scheduled time moves the window to now.
         if (challenge.getStartsAt().isAfter(now)) {
@@ -354,7 +361,17 @@ public class ChallengeServiceImpl implements ChallengeService {
             repositoryIds.forEach(id -> requireAccessibleRepository(actorId, id));
         } else if (repositoryIds != null && !repositoryIds.isEmpty()) {
             throw new DomainException(ErrorCode.VALIDATION_ERROR,
-                    "O modo de repositórios próprios não aceita repositórios selecionados");
+                    "Este modo não aceita repositórios selecionados");
+        }
+    }
+
+    private void validatePhotoModeAvailability(VerificationMode mode) {
+        if (mode != VerificationMode.STUDY_PHOTO) {
+            return;
+        }
+        if (!properties.getStudyPhotos().isEnabled() || !photoStorage.isAvailable()) {
+            throw new DomainException(ErrorCode.PHOTO_STORAGE_UNAVAILABLE,
+                    "O modo foto de estudo não está disponível no momento");
         }
     }
 

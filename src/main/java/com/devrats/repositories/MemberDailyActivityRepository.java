@@ -28,7 +28,8 @@ public interface MemberDailyActivityRepository extends JpaRepository<MemberDaily
             "ORDER BY a.activityDate ASC")
     List<LocalDate> findValidDates(@Param("challengeId") UUID challengeId, @Param("participantId") UUID participantId);
 
-    @Query("SELECT a.firstEligibleCommitAt FROM MemberDailyActivityEntity a " +
+    //---- O desempate usa a primeira evidência do dia, seja commit ou foto.
+    @Query("SELECT COALESCE(a.firstEligibleCommitAt, a.firstPhotoAt) FROM MemberDailyActivityEntity a " +
             "WHERE a.challenge.id = :challengeId AND a.participant.id = :participantId " +
             "AND a.activityDate = :activityDate AND a.validationStatus = 'VALID'")
     Optional<Instant> findFirstEligibleCommitAt(@Param("challengeId") UUID challengeId,
@@ -63,4 +64,34 @@ public interface MemberDailyActivityRepository extends JpaRepository<MemberDaily
                   @Param("participantId") UUID participantId,
                   @Param("activityDate") LocalDate activityDate,
                   @Param("commitAt") Instant commitAt);
+
+    //---- Foto e commit convivem no mesmo dia; o ON CONFLICT protege contra corrida.
+    @Modifying
+    @Query(value = """
+            INSERT INTO member_daily_activity
+                (id, challenge_id, participant_id, user_id, activity_date, first_eligible_commit_at,
+                 valid_commit_count, photo_count, first_photo_at, points, validation_status, validated_at)
+            VALUES
+                (gen_random_uuid(), :challengeId, :participantId, :userId, :activityDate, NULL,
+                 0, 1, :photoAt, 1.0, 'VALID', now())
+            ON CONFLICT (challenge_id, participant_id, activity_date) DO NOTHING
+            """, nativeQuery = true)
+    int insertPhotoDayIfAbsent(@Param("challengeId") UUID challengeId,
+                               @Param("participantId") UUID participantId,
+                               @Param("userId") UUID userId,
+                               @Param("activityDate") LocalDate activityDate,
+                               @Param("photoAt") Instant photoAt);
+
+    @Modifying
+    @Query(value = """
+            UPDATE member_daily_activity
+            SET photo_count = photo_count + 1,
+                first_photo_at = LEAST(COALESCE(first_photo_at, :photoAt), :photoAt),
+                points = CASE WHEN valid_commit_count > 0 THEN 1.0 ELSE points END
+            WHERE challenge_id = :challengeId AND participant_id = :participantId AND activity_date = :activityDate
+            """, nativeQuery = true)
+    int incrementPhoto(@Param("challengeId") UUID challengeId,
+                       @Param("participantId") UUID participantId,
+                       @Param("activityDate") LocalDate activityDate,
+                       @Param("photoAt") Instant photoAt);
 }
