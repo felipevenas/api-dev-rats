@@ -99,6 +99,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return buckets.get("heartbeat:" + ip, key -> bucket(properties.getRateLimit().getHeartbeatCapacity(),
                     properties.getRateLimit().getHeartbeatRefill()));
         }
+        if ("POST".equals(method) && path.matches("^/api/v1/challenges/[0-9a-fA-F-]{36}/photos$")) {
+            return buckets.get("photo-upload:" + ip, key -> bucket(
+                    properties.getRateLimit().getPhotoUploadCapacity(),
+                    properties.getRateLimit().getPhotoUploadRefill()));
+        }
         return null;
     }
 

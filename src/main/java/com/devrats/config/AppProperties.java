@@ -27,6 +27,8 @@ public class AppProperties {
     private final Presence presence = new Presence();
     private final Social social = new Social();
     private final Chat chat = new Chat();
+    private final StudyPhotos studyPhotos = new StudyPhotos();
+    private final Turnstile turnstile = new Turnstile();
     private String frontendUrl = "http://localhost:5173";
 
     @Getter
@@ -100,6 +102,8 @@ public class AppProperties {
         private Duration heartbeatRefill = Duration.ofMinutes(1);
         //---- Only enable when the app is behind a trusted proxy; otherwise XFF is spoofable.
         private boolean trustForwardedHeaders = false;
+        private int photoUploadCapacity = 20;
+        private Duration photoUploadRefill = Duration.ofHours(1);
     }
 
     @Getter
@@ -161,6 +165,42 @@ public class AppProperties {
 
         public boolean isConfigured() {
             return bucket != null && !bucket.isBlank();
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class StudyPhotos {
+        private boolean enabled = true;
+        private long maxImageBytes = 8_388_608;
+        private Duration urlTtl = Duration.ofMinutes(15);
+        private final PhotoStorage storage = new PhotoStorage();
+    }
+
+    @Getter
+    @Setter
+    public static class PhotoStorage {
+        private String bucket;
+        private String keyPrefix = "study-photos";
+
+        public boolean isConfigured() {
+            return bucket != null && !bucket.isBlank();
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class Turnstile {
+        private boolean enabled = false;
+        private String siteKey;
+        private String secretKey;
+        private String verifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+        private Duration timeout = Duration.ofSeconds(5);
+        //---- Fail-open only for local/dev environments; production must fail closed.
+        private boolean failOpen = false;
+
+        public boolean isConfigured() {
+            return secretKey != null && !secretKey.isBlank();
         }
     }
 

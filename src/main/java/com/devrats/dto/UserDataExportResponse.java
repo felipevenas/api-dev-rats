@@ -5,6 +5,7 @@ import com.devrats.enums.ExperienceLevel;
 import com.devrats.enums.TechStack;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,7 +26,8 @@ public record UserDataExportResponse(
         List<GroupMembership> groups,
         List<Friendship> friendships,
         Instant lastSeenAt,
-        List<ChatMessageExport> chatMessages
+        List<ChatMessageExport> chatMessages,
+        List<StudyPhotoExport> studyPhotos
 ) {
 
     public record GroupMembership(
@@ -68,6 +70,20 @@ public record UserDataExportResponse(
             String fileName,
             String contentType,
             long sizeBytes
+    ) {
+    }
+
+    /**
+     * Metadados das fotos de estudo do titular. A imagem em si vive em bucket
+     * privado e não é embutida no arquivo de portabilidade.
+     */
+    public record StudyPhotoExport(
+            UUID photoId,
+            UUID challengeId,
+            LocalDate activityDate,
+            String title,
+            String description,
+            Instant createdAt
     ) {
     }
 }

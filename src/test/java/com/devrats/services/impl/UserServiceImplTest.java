@@ -12,6 +12,7 @@ import com.devrats.repositories.UserPresenceRepository;
 import com.devrats.repositories.UserRepository;
 import com.devrats.services.ChatService;
 import com.devrats.services.RefreshTokenService;
+import com.devrats.services.StudyPhotoService;
 import com.devrats.services.storage.AvatarStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,7 @@ class UserServiceImplTest {
     private final UserPresenceRepository presenceRepository = mock(UserPresenceRepository.class);
     private final NotificationRepository notificationRepository = mock(NotificationRepository.class);
     private final ChatService chatService = mock(ChatService.class);
+    private final StudyPhotoService studyPhotoService = mock(StudyPhotoService.class);
     private final RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
     private final AvatarStorage avatarStorage = mock(AvatarStorage.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
@@ -56,7 +58,7 @@ class UserServiceImplTest {
     void setUp() {
         service = new UserServiceImpl(userRepository, githubAccountRepository, groupMemberRepository,
                 participantRepository, friendshipRepository, presenceRepository, notificationRepository,
-                chatService, refreshTokenService, avatarStorage, passwordEncoder,
+                chatService, studyPhotoService, refreshTokenService, avatarStorage, passwordEncoder,
                 Clock.fixed(Instant.parse("2026-11-03T12:00:00Z"), ZoneOffset.UTC));
         userId = UUID.randomUUID();
         user = new UserEntity();
@@ -75,6 +77,7 @@ class UserServiceImplTest {
         when(participantRepository.findAllByUserIdAndStatus(userId, com.devrats.enums.ParticipantStatus.ACTIVE))
                 .thenReturn(List.of());
         when(chatService.exportSentMessages(userId)).thenReturn(List.of());
+        when(studyPhotoService.exportForUser(userId)).thenReturn(List.of());
     }
 
     @Test
@@ -86,6 +89,7 @@ class UserServiceImplTest {
         verify(notificationRepository).deleteAllForUser(userId);
         verify(notificationRepository).deleteSocialByActor(userId.toString());
         verify(refreshTokenService).revokeAllForUser(userId);
+        verify(studyPhotoService).deleteAllForUser(userId);
     }
 
     @Test
