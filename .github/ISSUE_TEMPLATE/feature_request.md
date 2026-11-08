@@ -1,31 +1,31 @@
 ---
-name: Solicitação de Funcionalidade (Feature Request)
-about: Sugira uma nova ideia, funcionalidade ou melhoria para a API
+name: Feature Request
+about: Suggest a new idea, feature, or improvement for the API
 title: '[FEATURE] '
 labels: feature, enhancement
 assignees: ''
 ---
 
-## A sua sugestão está relacionada a um problema?
+## Is Your Suggestion Related to a Problem?
 
-Uma descrição clara e concisa do problema ou da limitação atual.
+A clear and concise description of the problem or current limitation.
 
-## Solução Proposta
+## Proposed Solution
 
-Descreva o comportamento desejado, os endpoints envolvidos e as regras de negócio esperadas.
+Describe the desired behavior, the endpoints involved, and the expected business rules.
 
-## Alternativas Consideradas
+## Alternatives Considered
 
-Descreva outras soluções ou abordagens que você considerou.
+Describe other solutions or approaches you considered.
 
-## Impacto Técnico
+## Technical Impact
 
-- [ ] Altera contrato público da API (`/api/v1`)
-- [ ] Exige migration ou índice novo
-- [ ] Altera regra de elegibilidade, progresso ou resultado
-- [ ] Envolve integração com GitHub, webhook ou segurança
-- [ ] Apenas documentação ou melhoria interna
+- [ ] Changes the public API contract (`/api/v1`)
+- [ ] Requires a migration or new index
+- [ ] Changes eligibility, progress, or result rules
+- [ ] Involves GitHub integration, webhooks, or security
+- [ ] Documentation or internal improvement only
 
-## Contexto Adicional
+## Additional Context
 
-Adicione casos de uso, exemplos de payload ou referências que justifiquem a melhoria.
+Add use cases, payload examples, or references that justify the improvement.

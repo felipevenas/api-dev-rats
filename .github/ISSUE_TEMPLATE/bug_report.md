@@ -1,42 +1,42 @@
 ---
-name: Relatório de Bug (Bug Report)
-about: Crie um relatório para nos ajudar a identificar e corrigir problemas na API
+name: Bug Report
+about: Create a report to help us identify and fix problems in the API
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
-## Descrição do Problema
+## Problem Description
 
-Uma descrição clara e concisa do que é o bug.
+A clear and concise description of the bug.
 
-## Passos para Reproduzir
+## Steps to Reproduce
 
-1. Suba a API com o profile `local` (`.\run-local.ps1`).
-2. Execute o endpoint ou fluxo `...`
-3. Envie o payload `...`
-4. Veja o erro retornado ou o log da aplicação
+1. Start the API with the `local` profile (`.\run-local.ps1`).
+2. Call the endpoint or execute the flow `...`
+3. Send the payload `...`
+4. Observe the returned error or application log
 
-## Comportamento Esperado
+## Expected Behavior
 
-Uma descrição clara e concisa do que você esperava que acontecesse.
+A clear and concise description of what you expected to happen.
 
-## Comportamento Atual
+## Actual Behavior
 
-O que aconteceu de fato, incluindo status HTTP, `code` e `traceId` retornados.
+What actually happened, including the returned HTTP status, `code`, and `traceId`.
 
-## Logs ou Evidência Visual
+## Logs or Visual Evidence
 
-Se aplicável, adicione o stack trace, os logs da aplicação ou capturas do Swagger. Remova tokens, cookies e dados pessoais antes de colar.
+If applicable, add the stack trace, application logs, or Swagger screenshots. Remove tokens, cookies, and personal data before pasting.
 
-## Ambiente
+## Environment
 
-- **Sistema Operacional**: [ex: Windows 11, Ubuntu 24.04]
-- **JDK**: [ex: Temurin 25.0.5]
-- **Profile**: [ex: local, prod]
-- **Banco**: [ex: PostgreSQL 17 via Docker]
-- **Versão da API / commit**: [ex: 0.1.0 / `abc1234`]
+- **Operating System**: [e.g. Windows 11, Ubuntu 24.04]
+- **JDK**: [e.g. Temurin 25.0.5]
+- **Profile**: [e.g. local, prod]
+- **Database**: [e.g. PostgreSQL 17 via Docker]
+- **API version / commit**: [e.g. 0.1.0 / `abc1234`]
 
-## Contexto Adicional
+## Additional Context
 
-Qualquer outro contexto relevante, como configuração de GitHub App, tipo de desafio ou horário do evento.
+Any other relevant context, such as GitHub App configuration, challenge type, or event time.

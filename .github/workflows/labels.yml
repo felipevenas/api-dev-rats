@@ -1,4 +1,4 @@
-name: Gerenciar Labels
+name: Manage Labels
 
 on:
   push:
@@ -13,21 +13,21 @@ permissions:
 
 jobs:
   labels:
-    name: Sincronizar Labels
+    name: Sync Labels
     runs-on: ubuntu-latest
     steps:
-      - name: Sincronizar Labels do Repositório
+      - name: Sync Repository Labels
         uses: actions/github-script@v7
         with:
           script: |
             const labels = [
-              { name: 'feature', color: '0E8A16', description: 'Novas funcionalidades e melhorias' },
-              { name: 'bug', color: 'D93F0B', description: 'Correções de erros e inconsistências' },
-              { name: 'enhancement', color: '1D76DB', description: 'Melhorias de desempenho ou de experiência' },
-              { name: 'documentation', color: '0075CA', description: 'Atualizações de documentação e README' },
-              { name: 'governance', color: '6F42C1', description: 'Diretrizes, governança e automações' },
-              { name: 'security', color: 'B60205', description: 'Auditorias e correções de segurança' },
-              { name: 'ci/cd', color: 'FBCA04', description: 'Workflows do GitHub Actions e compilação' }
+              { name: 'feature', color: '0E8A16', description: 'New features and improvements' },
+              { name: 'bug', color: 'D93F0B', description: 'Bug fixes and inconsistencies' },
+              { name: 'enhancement', color: '1D76DB', description: 'Performance or experience improvements' },
+              { name: 'documentation', color: '0075CA', description: 'Documentation and README updates' },
+              { name: 'governance', color: '6F42C1', description: 'Guidelines, governance, and automation' },
+              { name: 'security', color: 'B60205', description: 'Security audits and fixes' },
+              { name: 'ci/cd', color: 'FBCA04', description: 'GitHub Actions workflows and builds' }
             ];
 
             for (const label of labels) {
