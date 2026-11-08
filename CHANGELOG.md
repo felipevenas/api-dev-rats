@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### 🔧 Fixed
 
+- **Study photos**: feed entries now show "Foto de estudo publicada/removida" instead of the generic update message.
+
 - GitHub callback and setup always redirect to the frontend with `github=connected|installed|error`, without exposing error JSON.
 - Disconnecting GitHub revokes authorization in the GitHub App in addition to clearing local tokens.
 - Organization installations can be shared between DevRats accounts without improper reassignment.

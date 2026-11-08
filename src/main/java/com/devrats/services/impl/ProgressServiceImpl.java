@@ -362,6 +362,8 @@ public class ProgressServiceImpl implements ProgressService {
             case CHALLENGE_EXPIRED -> "Desafio encerrado sem vencedor";
             case MEMBER_JOINED, INVITE_ACCEPTED -> "Novo membro entrou no grupo";
             case DAILY_GOAL -> "Dia válido registrado";
+            case PHOTO_PUBLISHED -> "Foto de estudo publicada";
+            case PHOTO_DELETED -> "Foto de estudo removida";
             case ACTIVITY_CORRECTED -> "Atividade corrigida";
             default -> action.name();
         };
