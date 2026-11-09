@@ -1,6 +1,7 @@
 package com.devrats.services.github;
 
 import com.devrats.config.GitHubAppProperties;
+import com.devrats.dto.github.GitHubApp;
 import com.devrats.dto.github.GitHubInstallationTokenResponse;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.junit.jupiter.api.Test;
@@ -34,16 +35,20 @@ class GitHubAppTokenProviderTest {
         assertToken(base64);
     }
 
+    @Test
+    void shouldReturnSlugReportedByGithub_whenAppIsConfigured() throws Exception {
+        GitHubAppProperties properties = configuredProperties(generatePem());
+        GitHubApiClient apiClient = mock(GitHubApiClient.class);
+        when(apiClient.getApp(anyString())).thenReturn(new GitHubApp(5546729L, "devrats-app", "devrats-app"));
+
+        GitHubAppTokenProvider provider = new GitHubAppTokenProvider(properties, apiClient,
+                Clock.fixed(Instant.parse("2026-10-28T12:00:00Z"), ZoneOffset.UTC));
+
+        assertThat(provider.getAppSlug()).isEqualTo("devrats-app");
+    }
+
     private void assertToken(String privateKey) {
-        GitHubAppProperties properties = new GitHubAppProperties();
-        properties.setAppId("123456");
-        properties.setClientId("client");
-        properties.setClientSecret("secret");
-        properties.setWebhookSecret("webhook");
-        properties.setPrivateKey(privateKey);
-        properties.setAppSlug("devrats-test");
-        properties.setCallbackUrl("http://localhost:8080/api/v1/integrations/github/callback");
-        properties.setSetupUrl("http://localhost:8080/api/v1/integrations/github/setup");
+        GitHubAppProperties properties = configuredProperties(privateKey);
 
         GitHubApiClient apiClient = mock(GitHubApiClient.class);
         when(apiClient.createInstallationToken(anyString(), eq(77L)))
@@ -54,6 +59,19 @@ class GitHubAppTokenProviderTest {
 
         assertThat(provider.getInstallationToken(77L)).isEqualTo("installation-token");
         verify(apiClient).createInstallationToken(anyString(), eq(77L));
+    }
+
+    private GitHubAppProperties configuredProperties(String privateKey) {
+        GitHubAppProperties properties = new GitHubAppProperties();
+        properties.setAppId("123456");
+        properties.setClientId("client");
+        properties.setClientSecret("secret");
+        properties.setWebhookSecret("webhook");
+        properties.setPrivateKey(privateKey);
+        properties.setAppSlug("devrats-test");
+        properties.setCallbackUrl("http://localhost:8080/api/v1/integrations/github/callback");
+        properties.setSetupUrl("http://localhost:8080/api/v1/integrations/github/setup");
+        return properties;
     }
 
     private String generatePem() throws Exception {

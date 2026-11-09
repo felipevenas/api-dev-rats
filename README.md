@@ -316,7 +316,7 @@ Flyway runs automatically on startup. Hibernate only validates the schema; migra
 | `GITHUB_CLIENT_SECRET` | **Yes** for GitHub | — | OAuth client secret. |
 | `GITHUB_PRIVATE_KEY` | **Yes** for GitHub | — | PEM private key (PKCS#1/PKCS#8), or PKCS#8 base64. |
 | `GITHUB_WEBHOOK_SECRET` | **Yes** for webhooks | `dev-webhook-secret` (local) | Shared secret used to validate `X-Hub-Signature-256`. |
-| `GITHUB_APP_SLUG` | No | `devrats` | Slug used in the installation URL. |
+| `GITHUB_APP_SLUG` | No | `devrats-app` | Slug used in the installation URL (the backend also resolves it from the GitHub API). |
 | `GITHUB_CALLBACK_URL` | No | `http://localhost:8080/api/v1/integrations/github/callback` | OAuth callback registered in the GitHub App. |
 | `GITHUB_SETUP_URL` | No | `http://localhost:8080/api/v1/integrations/github/setup` | Setup URL registered in the GitHub App. |
 

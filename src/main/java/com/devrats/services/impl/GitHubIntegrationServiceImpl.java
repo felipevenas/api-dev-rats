@@ -145,9 +145,8 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
     public GitHubAuthorizeResponse getInstallUrl(UUID userId) {
         requireConfigured();
         String state = issueState(userId);
-        String slug = githubProperties.getAppSlug() == null || githubProperties.getAppSlug().isBlank()
-                ? githubProperties.getAppId() : githubProperties.getAppSlug();
-        return new GitHubAuthorizeResponse("https://github.com/apps/" + slug + "/installations/new?state=" + state);
+        return new GitHubAuthorizeResponse("https://github.com/apps/" + resolveAppSlug()
+                + "/installations/new?state=" + state);
     }
 
     @Override
@@ -538,6 +537,20 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
                 .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
                 .orElseThrow(() -> new DomainException(ErrorCode.GITHUB_NOT_CONNECTED,
                         "Conecte o GitHub antes de instalar a App"));
+    }
+
+    //---- O slug pode mudar quando a App é renomeada no GitHub; o valor configurado é só o fallback.
+    private String resolveAppSlug() {
+        try {
+            String slug = tokenProvider.getAppSlug();
+            if (isPresent(slug)) {
+                return slug;
+            }
+        } catch (RuntimeException exception) {
+            log.warn("Não foi possível consultar o slug da GitHub App: {}", exception.getMessage());
+        }
+        return isPresent(githubProperties.getAppSlug())
+                ? githubProperties.getAppSlug() : githubProperties.getAppId();
     }
 
     private String issueState(UUID userId) {

@@ -1,6 +1,7 @@
 package com.devrats.services.github;
 
 import com.devrats.config.GitHubAppProperties;
+import com.devrats.dto.github.GitHubApp;
 import com.devrats.dto.github.GitHubCommit;
 import com.devrats.dto.github.GitHubInstallation;
 import com.devrats.dto.github.GitHubInstallationList;
@@ -166,6 +167,16 @@ public class GitHubApiClient {
                 .retrieve()
                 .body(GitHubCommit[].class));
         return commits == null ? List.of() : List.of(commits);
+    }
+
+    public GitHubApp getApp(String appJwt) {
+        return execute(() -> restClient.get()
+                .uri(properties.getApiUrl() + "/app")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + appJwt)
+                .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", API_VERSION)
+                .retrieve()
+                .body(GitHubApp.class));
     }
 
     public GitHubInstallationTokenResponse createInstallationToken(String appJwt, Long installationId) {

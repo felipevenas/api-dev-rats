@@ -76,9 +76,10 @@ GITHUB_WEBHOOK_SECRET=dev-webhook-secret
 GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n
 ```
 
-> A App já provisionada para este projeto mantém o slug **`devstreak-local-felipe`** (nome externo, criado antes do
-> rebrand). Renomeá-la exige criar outra App e trocar todas as credenciais no `.env` da VPS — por isso o slug atual
-> não acompanha a mudança de marca. Para um ambiente novo, use `devrats-local-<seu-usuario>`.
+> A App já provisionada para este projeto usa o slug **`devrats-app`** (renomeada depois do rebrand; o nome externo
+> anterior era `devstreak-local-felipe`). Renomear a App muda o slug — o backend consulta o slug real na API do GitHub
+> ao gerar a URL de instalação, mas mantenha `GITHUB_APP_SLUG` atualizado para o fallback. Para um ambiente novo, use
+> `devrats-local-<seu-usuario>`.
 
 ### Formato da chave privada
 
@@ -137,5 +138,5 @@ marque **Active** e mantenha o mesmo secret do `.env`.
 | `?github=error&reason=invalid_state` no frontend | state expirou (cache Caffeine) ou a App usa outra callback URL |
 | `400 redirect_uri_mismatch` no GitHub | **Callback URL** da App diferente de `GITHUB_CALLBACK_URL` |
 | Toast de conectado, mas lista vazia | falta instalar a App (*Gerenciar instalação*) ou nenhum repositório selecionado |
-| Instalação não abre | `GITHUB_APP_SLUG` diferente do slug real da App |
+| Instalação não abre (404 do GitHub) | `GITHUB_APP_SLUG` diferente do slug real da App (o backend tenta resolver pela API; se falhar, usa o valor configurado) |
 | Webhook retorna `401` | `GITHUB_WEBHOOK_SECRET` diferente do secret configurado no GitHub |
