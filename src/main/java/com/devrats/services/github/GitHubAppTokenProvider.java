@@ -2,6 +2,7 @@ package com.devrats.services.github;
 
 import com.devrats.config.CacheConfig;
 import com.devrats.config.GitHubAppProperties;
+import com.devrats.dto.github.GitHubApp;
 import com.devrats.dto.github.GitHubInstallationTokenResponse;
 import com.devrats.exceptions.DomainException;
 import com.devrats.exceptions.ErrorCode;
@@ -48,6 +49,16 @@ public class GitHubAppTokenProvider {
         }
         GitHubInstallationTokenResponse response = apiClient.createInstallationToken(createAppJwt(), installationId);
         return response.token();
+    }
+
+    //---- The slug can change when the App is renamed on GitHub; asking the API keeps the install URL valid.
+    @Cacheable(cacheNames = CacheConfig.APP_SLUG, key = "'app'")
+    public String getAppSlug() {
+        if (!properties.isConfigured()) {
+            throw new DomainException(ErrorCode.GITHUB_NOT_CONNECTED, "GitHub App não configurada");
+        }
+        GitHubApp app = apiClient.getApp(createAppJwt());
+        return app == null ? null : app.slug();
     }
 
     private String createAppJwt() {

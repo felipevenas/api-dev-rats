@@ -10,6 +10,7 @@ import com.devrats.entities.GitHubAccountEntity;
 import com.devrats.entities.GitHubInstallationEntity;
 import com.devrats.entities.UserEntity;
 import com.devrats.enums.GitHubConnectionStatus;
+import com.devrats.exceptions.GitHubApiException;
 import com.devrats.repositories.GitHubAccountRepository;
 import com.devrats.repositories.GitHubInstallationRepository;
 import com.devrats.repositories.GitHubRepositoryRepository;
@@ -72,18 +73,57 @@ class GitHubIntegrationServiceImplTest {
 
     private GitHubIntegrationServiceImpl service;
     private CacheManager cacheManager;
+    private GitHubAppProperties githubProperties;
+    private AppProperties appProperties;
 
     @BeforeEach
     void setUp() {
         lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class)))
                 .thenReturn(org.mockito.Mockito.mock(TransactionStatus.class));
-        AppProperties appProperties = new AppProperties();
+        githubProperties = new GitHubAppProperties();
+        appProperties = new AppProperties();
         appProperties.setFrontendUrl("http://localhost:5173");
         cacheManager = new CacheConfig().cacheManager();
-        service = new GitHubIntegrationServiceImpl(accountRepository, installationRepository, repositoryRepository,
-                userRepository, apiClient, tokenProvider, new GitHubAppProperties(), appProperties, cipherHelper,
+        service = buildService();
+    }
+
+    private GitHubIntegrationServiceImpl buildService() {
+        return new GitHubIntegrationServiceImpl(accountRepository, installationRepository, repositoryRepository,
+                userRepository, apiClient, tokenProvider, githubProperties, appProperties, cipherHelper,
                 auditService, notificationService, cacheManager, transactionManager,
                 Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    @Test
+    void shouldUseSlugReportedByGithub_whenBuildingInstallUrl() {
+        configureGithubApp();
+        when(tokenProvider.getAppSlug()).thenReturn("devrats-app");
+
+        String url = service.getInstallUrl(UUID.randomUUID()).url();
+
+        assertThat(url).startsWith("https://github.com/apps/devrats-app/installations/new?state=");
+    }
+
+    @Test
+    void shouldFallBackToConfiguredSlug_whenGithubSlugLookupFails() {
+        configureGithubApp();
+        when(tokenProvider.getAppSlug()).thenThrow(new GitHubApiException(502, "GitHub respondeu 502"));
+
+        String url = service.getInstallUrl(UUID.randomUUID()).url();
+
+        assertThat(url).startsWith("https://github.com/apps/devrats-app/installations/new?state=");
+    }
+
+    private void configureGithubApp() {
+        githubProperties.setAppId("5546729");
+        githubProperties.setClientId("client");
+        githubProperties.setClientSecret("secret");
+        githubProperties.setPrivateKey("pem");
+        githubProperties.setWebhookSecret("secret");
+        githubProperties.setAppSlug("devrats-app");
+        githubProperties.setCallbackUrl("http://localhost:8080/api/v1/integrations/github/callback");
+        githubProperties.setSetupUrl("http://localhost:8080/api/v1/integrations/github/setup");
+        service = buildService();
     }
 
     @Test

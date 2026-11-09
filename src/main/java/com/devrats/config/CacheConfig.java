@@ -15,11 +15,12 @@ public class CacheConfig {
 
     public static final String INSTALLATION_TOKENS = "installationTokens";
     public static final String OAUTH_STATES = "oauthStates";
+    public static final String APP_SLUG = "appSlug";
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager manager = new CaffeineCacheManager(INSTALLATION_TOKENS, OAUTH_STATES);
-        //---- Both entries are short-lived: installation tokens are refreshed by the API and OAuth states are one-shot.
+        CaffeineCacheManager manager = new CaffeineCacheManager(INSTALLATION_TOKENS, OAUTH_STATES, APP_SLUG);
+        //---- All entries are short-lived: installation tokens are refreshed by the API and OAuth states are one-shot.
         manager.setCaffeine(Caffeine.newBuilder()
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .maximumSize(10_000)
