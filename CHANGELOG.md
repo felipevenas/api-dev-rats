@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### 🔧 Fixed
 
+- **GitHub install URL**: the installation link now resolves the App slug from the GitHub API (`GET /app`), so a renamed App no longer sends users to a GitHub 404 page; the configured `GITHUB_APP_SLUG` is used as fallback.
+- **GitHub App slug**: updated the default and documented value from the stale `devstreak-local-felipe` to the current `devrats-app`.
 - **Study photos**: feed entries now show "Foto de estudo publicada/removida" instead of the generic update message.
 
 - GitHub callback and setup always redirect to the frontend with `github=connected|installed|error`, without exposing error JSON.

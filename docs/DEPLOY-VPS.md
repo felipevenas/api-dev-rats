@@ -13,9 +13,9 @@ O `sslip.io` deixa de ser usado em produção.
 
 > **Identificadores legados (proposital)**: o app agora se chama **DevRats**, mas alguns nomes de infraestrutura
 > continuam com `devstreak` para não quebrar dados e integrações já provisionadas — database/role `devstreak`,
-> diretório `/opt/devstreak`, container `devstreak_api`, volume `devstreak_pgdata`, chave SSH `devstreak_vps`
-> e o slug da GitHub App `devstreak-local-felipe`. Renomear qualquer um deles exige migração de dados ou recriação
-> da App; o código, o domínio e a marca já usam `devrats`.
+> diretório `/opt/devstreak`, container `devstreak_api`, volume `devstreak_pgdata` e chave SSH `devstreak_vps`.
+> A GitHub App foi renomeada para **`devrats-app`**; o slug real é lido da API do GitHub em tempo de execução, mas
+> mantenha `GITHUB_APP_SLUG` alinhado para o fallback. O código, o domínio e a marca já usam `devrats`.
 
 - **VM**: `venasvps`, RG `VENASVPS_GROUP`, `Standard_B2pts_v2` (2 vCPU ARM64, ~1 GB), `westus2`, IP `172.179.233.109`
 - **NSG**: apenas 80, 443 e 22. Nenhuma porta de aplicação publicada.
@@ -175,7 +175,7 @@ TOKEN_ENCRYPTION_KEY=...       # base64, 32 bytes (AES-GCM dos tokens GitHub)
 GITHUB_APP_ID=5546729
 GITHUB_CLIENT_ID=Iv23liA2nnSj0Dp90FHP
 GITHUB_CLIENT_SECRET=...
-GITHUB_APP_SLUG=devstreak-local-felipe
+GITHUB_APP_SLUG=devrats-app
 GITHUB_PRIVATE_KEY=...         # PEM em linha única com \n
 GITHUB_WEBHOOK_SECRET=dev-webhook-secret
 GITHUB_CALLBACK_URL=https://api.devrats.app/api/v1/integrations/github/callback
@@ -308,7 +308,7 @@ O runbook completo, DNS e troubleshooting estão em [`EMAIL.md`](EMAIL.md).
 
 ## GitHub App
 
-*Settings → Developer settings → GitHub Apps → devstreak-local-felipe*:
+*Settings → Developer settings → GitHub Apps → devrats-app*:
 
 | Campo | Valor |
 | --- | --- |
