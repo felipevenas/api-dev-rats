@@ -239,6 +239,7 @@ public class ActivityProcessingService {
         challengeRepositoryRepository.findAllByGithubRepositoryId(repository.getId()).stream()
                 .map(link -> link.getChallenge())
                 .filter(challenge -> challenge.getStatus() == ChallengeStatus.ACTIVE)
+                .filter(challenge -> challenge.getVerificationMode().countsCommits())
                 .forEach(challenge -> challenges.put(challenge.getId(), challenge));
         participantRepository.findAllByUserIdAndStatus(user.getId(), ParticipantStatus.ACTIVE).stream()
                 .map(ChallengeParticipantEntity::getChallenge)

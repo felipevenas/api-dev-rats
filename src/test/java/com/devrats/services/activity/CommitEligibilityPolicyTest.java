@@ -135,6 +135,17 @@ class CommitEligibilityPolicyTest {
                 candidate(GITHUB_USER_ID, false, false, false), NOW).eligible()).isTrue();
     }
 
+    @Test
+    void shouldRejectCommit_whenChallengeUsesStudyPhotoMode() {
+        challenge.setVerificationMode(VerificationMode.STUDY_PHOTO);
+
+        EligibilityDecision decision = policy.evaluate(challenge, participant, repository, GITHUB_USER_ID,
+                false, candidate(GITHUB_USER_ID, false, false, false), NOW);
+
+        assertThat(decision.eligible()).isFalse();
+        assertThat(decision.reason()).isEqualTo("MODE_NOT_COMMIT_BASED");
+    }
+
     private CommitCandidate candidate(Long authorId, boolean automated, boolean empty, boolean merge) {
         return new CommitCandidate("abc123", authorId, null, "tester", NOW.minus(Duration.ofMinutes(10)),
                 NOW, automated, empty, merge, CommitObservationSource.WEBHOOK);

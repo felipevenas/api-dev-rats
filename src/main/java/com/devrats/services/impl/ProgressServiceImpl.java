@@ -173,6 +173,10 @@ public class ProgressServiceImpl implements ProgressService {
         ChallengeParticipantEntity participant = participantRepository
                 .findByChallengeIdAndUserId(challengeId, target)
                 .orElseThrow(() -> new NotFoundException(ErrorCode.CHALLENGE_NOT_FOUND));
+        //---- Foto de estudo não tem evidência de commit a exibir.
+        if (!challenge.getVerificationMode().countsCommits()) {
+            return List.of();
+        }
 
         Long authorGithubId = githubAccountRepository.findByUserId(participant.getUser().getId())
                 .map(GitHubAccountEntity::getGithubUserId)
@@ -329,6 +333,9 @@ public class ProgressServiceImpl implements ProgressService {
     }
 
     private Set<UUID> eligibleRepositoryIds(ChallengeEntity challenge, Long authorGithubId) {
+        if (!challenge.getVerificationMode().countsCommits()) {
+            return Set.of();
+        }
         if (challenge.getVerificationMode() == VerificationMode.SELECTED_REPOSITORIES) {
             return challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challenge.getId()).stream()
                     .map(link -> link.getGithubRepository().getId())

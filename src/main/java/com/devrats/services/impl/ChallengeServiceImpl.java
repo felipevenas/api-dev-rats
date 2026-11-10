@@ -186,8 +186,8 @@ public class ChallengeServiceImpl implements ChallengeService {
         challenge.setAdmissionEndsAt(admissionEndsAt == null ? startsAt : admissionEndsAt);
         challengeRepository.save(challenge);
 
-        if (mode == VerificationMode.OWN_REPOSITORIES) {
-            //---- Switching to own repositories drops the old selected list so it cannot be reused later.
+        if (mode != VerificationMode.SELECTED_REPOSITORIES) {
+            //---- Any non-selected mode drops the old selected list so it cannot be reused later.
             challengeRepositoryRepository.deleteAll(
                     challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challengeId));
         } else if (repositoryIds != null) {
@@ -208,7 +208,7 @@ public class ChallengeServiceImpl implements ChallengeService {
         requireDraft(challenge);
         if (challenge.getVerificationMode() != VerificationMode.SELECTED_REPOSITORIES) {
             throw new ConflictException(ErrorCode.INVALID_CHALLENGE_STATE,
-                    "Este desafio usa repositórios próprios e não aceita repositórios selecionados");
+                    "Este desafio não aceita repositórios selecionados");
         }
         long count = challengeRepositoryRepository.countByChallengeId(challengeId);
         if (count >= properties.getChallenges().getMaxRepositories()) {
@@ -312,6 +312,11 @@ public class ChallengeServiceImpl implements ChallengeService {
                 && challengeRepositoryRepository.countByChallengeId(challenge.getId()) == 0) {
             throw new ConflictException(ErrorCode.INVALID_CHALLENGE_STATE,
                     "Selecione pelo menos um repositório antes de iniciar");
+        }
+        //---- Non-selected modes (own repositories, study photo) never keep selected links.
+        if (challenge.getVerificationMode() != VerificationMode.SELECTED_REPOSITORIES) {
+            challengeRepositoryRepository.deleteAll(
+                    challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challenge.getId()));
         }
         validatePhotoModeAvailability(challenge.getVerificationMode());
         Instant now = clock.instant();

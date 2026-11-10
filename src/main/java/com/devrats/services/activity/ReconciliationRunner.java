@@ -77,6 +77,10 @@ public class ReconciliationRunner {
         if (challenge == null || challenge.getStatus() != ChallengeStatus.ACTIVE) {
             return;
         }
+        //---- Desafios validados por foto não têm evidência de commit para reconciliar.
+        if (!challenge.getVerificationMode().countsCommits()) {
+            return;
+        }
         Instant since = runRepository.findTopByChallengeIdOrderByStartedAtDesc(challengeId)
                 .map(previous -> previous.getStartedAt().minusSeconds(300))
                 .orElseGet(() -> challenge.getStartedAt() == null
@@ -108,23 +112,28 @@ public class ReconciliationRunner {
 
     private Map<UUID, GitHubRepositoryEntity> repositoriesFor(ChallengeEntity challenge) {
         Map<UUID, GitHubRepositoryEntity> repositories = new LinkedHashMap<>();
-        if (challenge.getVerificationMode() == com.devrats.enums.VerificationMode.SELECTED_REPOSITORIES) {
-            challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challenge.getId())
-                    .stream()
-                    .map(ChallengeRepositoryEntity::getGithubRepository)
-                    .forEach(repository -> repositories.put(repository.getId(), repository));
-            return repositories;
-        }
-        List<ChallengeParticipantEntity> participants = participantRepository
-                .findAllByChallengeIdAndStatus(challenge.getId(), ParticipantStatus.ACTIVE);
-        for (ChallengeParticipantEntity participant : participants) {
-            accountRepository.findByUserId(participant.getUser().getId())
-                    .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
-                    .map(GitHubAccountEntity::getGithubUserId)
-                    .ifPresent(githubUserId -> repositoryRepository.findAllByOwnerGithubUserId(githubUserId)
-                            .forEach(repository -> repositories.put(repository.getId(), repository)));
-        }
-        return repositories;
+        return switch (challenge.getVerificationMode()) {
+            case SELECTED_REPOSITORIES -> {
+                challengeRepositoryRepository.findAllByChallengeIdOrderBySlotAsc(challenge.getId())
+                        .stream()
+                        .map(ChallengeRepositoryEntity::getGithubRepository)
+                        .forEach(repository -> repositories.put(repository.getId(), repository));
+                yield repositories;
+            }
+            case OWN_REPOSITORIES -> {
+                List<ChallengeParticipantEntity> participants = participantRepository
+                        .findAllByChallengeIdAndStatus(challenge.getId(), ParticipantStatus.ACTIVE);
+                for (ChallengeParticipantEntity participant : participants) {
+                    accountRepository.findByUserId(participant.getUser().getId())
+                            .filter(account -> account.getConnectionStatus() == GitHubConnectionStatus.CONNECTED)
+                            .map(GitHubAccountEntity::getGithubUserId)
+                            .ifPresent(githubUserId -> repositoryRepository.findAllByOwnerGithubUserId(githubUserId)
+                                    .forEach(repository -> repositories.put(repository.getId(), repository)));
+                }
+                yield repositories;
+            }
+            case STUDY_PHOTO -> Map.of();
+        };
     }
 
     private int reconcileRepository(ChallengeEntity challenge, GitHubRepositoryEntity repository, Instant since) {

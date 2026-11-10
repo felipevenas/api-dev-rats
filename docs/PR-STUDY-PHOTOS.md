@@ -24,6 +24,7 @@ O produto já validava commits, mas não cobria quem estuda sem necessariamente 
 5. **Pontuação desacoplada do vínculo.** Repositório e URL de commit são apenas contexto visual. A pontuação do modo foto é a própria foto.
 6. **Turnstile no header.** O token viaja em `X-Turnstile-Token`, evitando alterar os DTOs de registro/login/reset e quebrar clientes antigos.
 7. **Produção falha fechado.** `fail-open` existe apenas para desenvolvimento local; em produção, indisponibilidade da Cloudflare retorna 503.
+8. **Modo estrito.** `STUDY_PHOTO` nunca valida dia por commit. A regra fica centralizada em `VerificationMode.countsCommits()` e é aplicada no webhook, na reconciliação e na listagem de evidências; a reconciliação nem consulta o GitHub para desafios de foto.
 
 ## Banco de dados
 
@@ -34,6 +35,14 @@ Migration `V7__study_photos.sql`:
 - adiciona `photo_count`, `first_photo_at` e `points` ao ledger;
 - cria `study_photos` com unique key por participante/dia e índices de consulta;
 - mantém os modos existentes intactos.
+
+Migration `V8__study_photo_mode_isolation.sql`:
+
+- remove vínculos de repositórios selecionados de desafios de foto;
+- remove dias de desafios de foto validados apenas por commit;
+- zera a evidência de commit em dias híbridos, preservando o dia válido pela foto;
+- recalcula `valid_days`, `current_streak`, `best_streak` e `last_valid_date` dos participantes de desafios de foto, seguindo a mesma regra de `StreakHelper` (sequência viva se a última data for hoje ou ontem);
+- não reverte automaticamente desafios de foto já concluídos; o runbook lista os casos para correção manual.
 
 ## API
 
@@ -80,8 +89,34 @@ CLOUDFLARE_TURNSTILE_FAIL_OPEN=false
 
 - Unitários: `TurnstileVerifierTest` (sucesso, token ausente, rejeição, indisponibilidade, fail-open).
 - Integração: `StudyPhotoIntegrationTest` cobre publicação, dia válido no progresso, segunda foto no mesmo dia, listagem, exclusão com recálculo e 404 para não membro.
-- Suíte completa: 229 testes, 0 falhas.
+- Integração: `StudyPhotoModeIsolationIntegrationTest` cobre webhook, commit reconciliado, reconciliação ignorada, evidência de commit oculta e limpeza de vínculos ao trocar para foto.
+- Suíte completa: 243 testes, 0 falhas.
 - Frontend: 149 testes, `npm run build` OK.
+
+## Runbook pós-deploy (migration V8)
+
+A V8 roda no startup do container. Faça o deploy com a instância antiga parada (o `docker compose up -d` substitui o container anterior), para que nenhum webhook antigo grave um dia de commit após a limpeza.
+
+```sql
+-- 1. Não devem restar dias validados só por commit em desafios de foto.
+SELECT count(*) AS dias_so_commit
+FROM member_daily_activity a
+JOIN challenges c ON c.id = a.challenge_id
+WHERE c.verification_mode = 'STUDY_PHOTO'
+  AND a.validation_status = 'VALID'
+  AND a.photo_count = 0;
+
+-- 2. Desafios de foto concluídos cujo vencedor ficou abaixo da meta.
+--    A migration não reverte resultados; corrija manualmente se houver linhas.
+SELECT c.id AS challenge_id, c.group_id, c.target_valid_days,
+       r.winner_user_id, p.valid_days
+FROM challenges c
+JOIN challenge_results r ON r.challenge_id = c.id
+JOIN challenge_participants p ON p.id = r.winner_participant_id
+WHERE c.verification_mode = 'STUDY_PHOTO'
+  AND c.status = 'COMPLETED'
+  AND p.valid_days < c.target_valid_days;
+```
 
 ## Checklist
 
