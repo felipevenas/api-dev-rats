@@ -35,6 +35,10 @@ public class CommitEligibilityPolicy {
         if (participant.getStatus() != ParticipantStatus.ACTIVE) {
             return EligibilityDecision.deny("PARTICIPANT_NOT_ACTIVE");
         }
+        //---- Foto de estudo só é validada por foto: commit nunca pode virar dia.
+        if (!challenge.getVerificationMode().countsCommits()) {
+            return EligibilityDecision.deny("MODE_NOT_COMMIT_BASED");
+        }
         if (repository.getAccessStatus() != RepositoryAccessStatus.ACCESSIBLE) {
             return EligibilityDecision.deny("REPOSITORY_NOT_ACCESSIBLE");
         }

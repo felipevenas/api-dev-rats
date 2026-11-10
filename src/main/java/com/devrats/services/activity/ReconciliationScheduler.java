@@ -18,7 +18,8 @@ public class ReconciliationScheduler {
 
     @Scheduled(fixedDelay = 600_000, initialDelay = 60_000)
     public void reconcileActiveChallenges() {
-        challengeRepository.findAllByStatus(ChallengeStatus.ACTIVE)
+        challengeRepository.findAllByStatus(ChallengeStatus.ACTIVE).stream()
+                .filter(challenge -> challenge.getVerificationMode().countsCommits())
                 .forEach(challenge -> runner.reconcile(challenge.getId()));
     }
 }

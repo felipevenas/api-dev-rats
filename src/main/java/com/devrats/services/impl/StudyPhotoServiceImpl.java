@@ -244,7 +244,7 @@ public class StudyPhotoServiceImpl implements StudyPhotoService {
         LocalDate activityDate = photo.getActivityDate();
         String objectKey = photo.getObjectKey();
         photoRepository.delete(photo);
-        removePhotoFromDay(challengeId, participantId, activityDate);
+        removePhotoFromDay(challenge, participantId, activityDate);
         progressService.recalculateParticipant(participantId);
         afterCommit(() -> storage.delete(objectKey));
         auditService.record(actorId, "CHALLENGE", challengeId, AuditAction.PHOTO_DELETED,
@@ -272,7 +272,7 @@ public class StudyPhotoServiceImpl implements StudyPhotoService {
         Set<UUID> participantIds = new HashSet<>();
         for (StudyPhotoEntity photo : photos) {
             participantIds.add(photo.getParticipant().getId());
-            removePhotoFromDay(photo.getChallenge().getId(), photo.getParticipant().getId(),
+            removePhotoFromDay(photo.getChallenge(), photo.getParticipant().getId(),
                     photo.getActivityDate());
             photoRepository.delete(photo);
         }
@@ -393,10 +393,11 @@ public class StudyPhotoServiceImpl implements StudyPhotoService {
         }
     }
 
-    private void removePhotoFromDay(UUID challengeId, UUID participantId, LocalDate activityDate) {
-        activityRepository.findByChallengeIdAndParticipantIdAndActivityDate(challengeId, participantId, activityDate)
+    private void removePhotoFromDay(ChallengeEntity challenge, UUID participantId, LocalDate activityDate) {
+        activityRepository.findByChallengeIdAndParticipantIdAndActivityDate(challenge.getId(), participantId, activityDate)
                 .ifPresent(day -> {
-                    if (day.getValidCommitCount() == 0) {
+                    //---- No modo foto o dia só existe pela foto; commit residual nunca o mantém.
+                    if (!challenge.getVerificationMode().countsCommits() || day.getValidCommitCount() == 0) {
                         activityRepository.delete(day);
                         return;
                     }
